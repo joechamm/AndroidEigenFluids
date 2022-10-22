@@ -24,6 +24,8 @@
 
 package com.joechamm.eigenfluids;
 
+import androidx.annotation.NonNull;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ShortBuffer;
@@ -98,7 +100,7 @@ public class ParticleArray {
         mIndexBuffer.position(0);
     }
 
-    public void draw(GL10 gl) {
+    public void draw(@NonNull GL10 gl) {
         gl.glVertexPointer(2, GL11.GL_FLOAT, 0, mFVertexBuffer);
         gl.glColorPointer(4, GL11.GL_UNSIGNED_BYTE, 0, mColorBuffer);
         gl.glDrawElements(GL11.GL_POINTS, mNumParticles, GL11.GL_UNSIGNED_SHORT, mIndexBuffer);
@@ -121,7 +123,7 @@ public class ParticleArray {
     public int[] mParticleIndex;
     public short[] mBufferIndices;
     public float[] mParticlesXY;
-    public int mNumParticles = 0;
+    public int mNumParticles;
 
     private FloatBuffer mFVertexBuffer;
     private ShortBuffer mIndexBuffer;

@@ -132,7 +132,7 @@ public class ParticleRenderer implements GLSurfaceView.Renderer {
             mCoefficients[k] += dw[k] * mDt;
         }
 
-        // Renormalize energy
+        // Re-normalize energy
         if (previousEnergy > 1e-5) {
             setEnergy(previousEnergy);
         }
@@ -169,8 +169,8 @@ public class ParticleRenderer implements GLSurfaceView.Renderer {
         boolean Euler = false;
 
         for (int i = 0; i < mParticles.mNumParticles; i++) {
-            double x = (double) mParticles.mParticlesXY[i * 2];
-            double y = (double) mParticles.mParticlesXY[i * 2 + 1];
+            double x = mParticles.mParticlesXY[i * 2];
+            double y = mParticles.mParticlesXY[i * 2 + 1];
 
             double nx = 0.0;
             double ny = 0.0;
@@ -231,7 +231,7 @@ public class ParticleRenderer implements GLSurfaceView.Renderer {
         for (int i = 0; i < mN; i++) {
             int k1 = this.basisLookup(i, 0);
             int k2 = this.basisLookup(i, 1);
-            mEigenvalues[i] = (double) (k1 * k1 + k2 * k2);
+            mEigenvalues[i] = k1 * k1 + k2 * k2;
             mInverseEigenvalues[i] = 1.0 / (k1 * k1 + k2 * k2);
             mInverseEigenvaluesSqrt[i] = 1.0 / Math.sqrt(k1 * k1 + k2 * k2);
         }
@@ -407,7 +407,7 @@ public class ParticleRenderer implements GLSurfaceView.Renderer {
     public void fillLookupTable() {
         // Assume that mN is a perfect square, and use all basis fields with eigenvalues (k1,k2) up to (sqrt(mN), sqrt(mN))
 
-        mNSqrt = (int) Math.floor(Math.sqrt((double) mN));
+        mNSqrt = (int) Math.floor(Math.sqrt(mN));
 
         mBasisLookupTable = new int[mN][2];
         mBasisReverseLookupTable = new int[mNSqrt + 1][mNSqrt + 1];
@@ -591,21 +591,17 @@ public class ParticleRenderer implements GLSurfaceView.Renderer {
     public int clampInt(int val, int min, int max) {
         if (val < min)
             return min;
-        if (val > max)
-            return max;
-        return val;
+        return Math.min(val, max);
     }
 
     public double clampDbl(double val, double min, double max) {
         if (val < min)
             return min;
-        if (val > max)
-            return max;
-        return val;
+        return Math.min(val, max);
     }
 
-    private boolean mTranslucentBackground;
-    private ParticleArray mParticles;
+    private final boolean mTranslucentBackground;
+    private final ParticleArray mParticles;
 
     public int mX;
     public int mY;

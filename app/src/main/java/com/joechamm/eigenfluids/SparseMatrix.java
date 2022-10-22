@@ -115,7 +115,6 @@ public class SparseMatrix {
 
         if (colIdx >= 0) {
             mFValues[row][colIdx] = value;
-            return;
         } else {
             int insertionPoint = -(colIdx + 1);
             int oldLength = mICounters[row];
