@@ -23,320 +23,283 @@
  */
 
 package com.joechamm.eigenfluids;
-
 public class SparseMatrix {
 
-    public SparseMatrix(int colCount, int rowCount) {
-        mIRowCount = rowCount;
-        mIColumnCount = colCount;
-        mFValues = new double[mIRowCount][];
-        mIColumnIndices = new int[mIRowCount][];
-        mICounters = new int[mIRowCount];
+    protected float[][] nzValues;
+    protected int[][] columnIndices;
+    protected int[] nzCounters;
+    public int colCount = 0;
+    public int rowCount = 0;
+
+    public SparseMatrix ( int colCount, int rowCount ) {
+        this.rowCount = rowCount;
+        this.colCount = colCount;
+        this.nzValues = new float[ rowCount ][];
+        this.columnIndices = new int[ rowCount ][];
+        this.nzCounters = new int[ rowCount ];
     }
 
-    public static void main(String[] argv) {
-        SparseMatrix a = new SparseMatrix(4, 4);
-        double[] v = new double[4];
-        a.set(3, 0, 1.0);
-        a.set(3, 1, -2.0);
-        a.set(3, 2, 3.0);
-        a.set(3, 3, -4.0);
 
-        v[0] = 10.0;
-        v[1] = 10.0;
-        v[2] = 10.0;
-        v[3] = 10.0;
-
-        a.dump();
-
-        double[] x = a.mult(v);
-        for (int i = 0; i < 4; i++) {
-            System.out.printf("%f\n", x[i]);
+    private static int binarySearch ( int[] array, int startIdx, int endIdx, int value ) {
+        if ( value < array[ startIdx ] ) {
+            return ( - startIdx - 1 );
         }
 
-    }
-
-    public double get(int col, int row) {
-        if (mIColumnIndices[row] == null) {
-            return 0.0;
-        }
-        int columnIndex = binarySearch(mIColumnIndices[row], 0,mICounters[row] - 1, col);
-
-        if (columnIndex < 0) {
-            return 0.0;
+        if ( value > array[ endIdx ] ) {
+            return ( - ( endIdx + 1 ) - 1 );
         }
 
-        return mFValues[row][columnIndex];
-    }
-
-    private static int binarySearch(int[] array, int startIndex, int endIndex,
-                                    int value) {
-        if (value < array[startIndex]) {
-            return (-startIndex - 1);
-        }
-
-        if (value > array[endIndex]) {
-            return (-(endIndex + 1) - 1);
-        }
-
-        if (startIndex == endIndex) {
-            if (array[startIndex] == value) {
-                return startIndex;
+        if ( startIdx == endIdx ) {
+            if ( array[ startIdx ] == value ) {
+                return startIdx;
             } else {
-                return (-(startIndex + 1) - 1);
+                return ( - ( startIdx + 1 ) - 1 );
             }
         }
 
-        int midIndex = (startIndex + endIndex) / 2;
-        if (value == array[midIndex]) {
-            return midIndex;
+        int midIdx = ( startIdx + endIdx ) / 2;
+        if ( value == array[ midIdx ] ) {
+            return midIdx;
         }
 
-        if (value < array[midIndex]) {
-            return binarySearch(array, startIndex, midIndex - 1, value);
+        if ( value < array[ midIdx ] ) {
+            return binarySearch ( array, startIdx, midIdx - 1, value );
         } else {
-            return binarySearch(array, midIndex + 1, endIndex, value);
+            return binarySearch ( array, midIdx + 1, endIdx, value );
         }
-
     }
 
-    public void set(int col, int row, double value) {
-        if (mIColumnIndices[row] == null) {
-            mIColumnIndices[row] = new int[2];
-            mFValues[row] = new double[2];
-            mIColumnIndices[row][0] = col;
-            mFValues[row][0] = value;
-            mICounters[row] = 1;
+    public float get ( int column, int row ) {
+        if ( this.columnIndices[ row ] == null ) {
+            return 0.0f;
+        }
+        int columnIdx = binarySearch ( this.columnIndices[ row ], 0, this.nzCounters[ row ] - 1, column );
+
+        if ( columnIdx < 0 ) {
+            return 0.0f;
+        }
+        return this.nzValues[ row ][ columnIdx ];
+    }
+
+    public void set ( int column, int row, float value ) {
+        if ( this.columnIndices[ row ] == null ) {
+            // first value in this row
+            this.columnIndices[ row ] = new int[ 2 ];
+            this.nzValues[ row ] = new float[ 2 ];
+            this.columnIndices[ row ][ 0 ] = column;
+            this.nzValues[ row ][ 0 ] = value;
+            this.nzCounters[ row ] = 1;
             return;
         }
 
-        int colIdx = binarySearch(mIColumnIndices[row], 0, mICounters[row] - 1,
-                col);
-
-        if (colIdx >= 0) {
-            mFValues[row][colIdx] = value;
+        // search for it
+        int colIndex = binarySearch ( this.columnIndices[ row ], 0, this.nzCounters[ row ] - 1, column );
+        if ( colIndex >= 0 ) {
+            this.nzValues[ row ][ colIndex ] = value;
+            return;
         } else {
-            int insertionPoint = -(colIdx + 1);
-            int oldLength = mICounters[row];
+            int insertionPoint = - ( colIndex + 1 );
+            int oldLength = this.nzCounters[ row ];
             int newLength = oldLength + 1;
-            if (newLength <= mIColumnIndices[row].length) {
-                if (insertionPoint != oldLength) {
-                    for (int i = oldLength; i > insertionPoint; i--) {
-                        mFValues[row][i] = mFValues[row][i - 1];
-                        mIColumnIndices[row][i] = mIColumnIndices[row][i - 1];
+            if ( newLength <= this.columnIndices[ row ].length ) {
+                if ( insertionPoint != oldLength ) {
+                    for ( int i = oldLength; i > insertionPoint; i-- ) {
+                        this.nzValues[ row ][ i ] = this.nzValues[ row ][ i - 1 ];
+                        this.columnIndices[ row ][ i ] = this.columnIndices[ row ][ i - 1 ];
                     }
                 }
 
-                mIColumnIndices[row][insertionPoint] = col;
-                mFValues[row][insertionPoint] = value;
-                mICounters[row]++;
+                this.columnIndices[ row ][ insertionPoint ] = column;
+                this.nzValues[ row ][ insertionPoint ] = value;
+                this.nzCounters[ row ]++;
                 return;
             }
 
-            int[] newColIndices = new int[2 * oldLength];
-            double[] newValues = new double[2 * oldLength];
-
-            if (insertionPoint == oldLength) {
-                System.arraycopy(mIColumnIndices[row], 0, newColIndices, 0,
-                        oldLength);
-                System.arraycopy(mFValues[row], 0, newValues, 0, oldLength);
+            int[] newColumnIndices = new int[ 2 * oldLength ];
+            float[] newNzValues = new float[ 2 * oldLength ];
+            if ( insertionPoint == oldLength ) {
+                System.arraycopy ( this.columnIndices[ row ], 0, newColumnIndices, 0, oldLength );
+                System.arraycopy ( this.nzValues[ row ], 0, newNzValues, 0, oldLength );
             } else {
-                System.arraycopy(mIColumnIndices[0], 0, newColIndices, 0,
-                        insertionPoint);
-                System.arraycopy(mFValues[row], 0, newValues, 0, insertionPoint);
-                System.arraycopy(mIColumnIndices[row], insertionPoint,
-                        newColIndices, insertionPoint + 1, oldLength
-                                - insertionPoint);
-                System.arraycopy(mFValues[row], insertionPoint, newValues,
-                        insertionPoint + 1, oldLength - insertionPoint);
+                System.arraycopy ( this.columnIndices[ row ], 0, newColumnIndices, 0, insertionPoint );
+                System.arraycopy ( this.nzValues[ row ], 0, newNzValues, 0, insertionPoint );
+                System.arraycopy ( this.columnIndices[ row ], insertionPoint, newColumnIndices, insertionPoint + 1,
+                                   oldLength - insertionPoint );
+                System.arraycopy ( this.nzValues[ row ], insertionPoint, newNzValues, insertionPoint + 1, oldLength - insertionPoint );
             }
 
-            newColIndices[insertionPoint] = col;
-            newValues[insertionPoint] = value;
-            mIColumnIndices[row] = null;
-            mIColumnIndices[row] = newColIndices;
-            mFValues[row] = null;
-            mFValues[row] = newValues;
-            mICounters[row]++;
+            newColumnIndices[ insertionPoint ] = column;
+            newNzValues[ insertionPoint ] = value;
+            this.columnIndices[ row ] = null;
+            this.columnIndices[ row ] = newColumnIndices;
+            this.nzValues[ row ] = null;
+            this.nzValues[ row ] = newNzValues;
+            this.nzCounters[ row ]++;
         }
     }
 
     public void dump() {
-        System.out.println("MATRIX " + mIRowCount + "*" + mIColumnCount);
-        for (int row = 0; row < mIRowCount; row++) {
-            int[] columnIndices = mIColumnIndices[row];
-            if (columnIndices == null) {
-                for (int col = 0; col < mIColumnCount; col++) {
-                    System.out.print("0.0 ");
+        System.out.println ( "MATRIX " + this.rowCount + "*" + this.colCount );
+        for ( int row = 0; row < this.rowCount; row++ ) {
+            int[] columnIndices = this.columnIndices[ row ];
+            if ( columnIndices == null ) {
+                for ( int col = 0; col < this.colCount; col++ ) {
+                    System.out.print ( "0.0 " );
                 }
             } else {
                 int prevColumnIndex = 0;
-                for (int colIndex = 0; colIndex < mICounters[row]; colIndex++) {
-                    int currColumnIndex = columnIndices[colIndex];
-                    for (int col = prevColumnIndex; col < currColumnIndex; col++) {
-                        System.out.print("0.0 ");
+                for ( int colIndex = 0; colIndex < this.nzCounters[ row ]; colIndex++ ) {
+                    int currColumnIndex = columnIndices[ colIndex ];
+                    for ( int col = prevColumnIndex; col < currColumnIndex; col++ ) {
+                        System.out.print ( "0.0 " );
+                        ;
                     }
-
-                    System.out.print(mFValues[row][colIndex] + " ");
+                    System.out.print ( this.nzValues[ row ][ colIndex ] + " " );
                     prevColumnIndex = currColumnIndex + 1;
                 }
 
-                for (int col = prevColumnIndex; col < mIColumnCount; col++) {
-                    System.out.print("0.0 ");
-
+                for ( int col = prevColumnIndex; col < this.colCount; col++ ) {
+                    System.out.print ( "0.0 " );
                 }
             }
-
             System.out.println();
         }
     }
 
     public void dumpInt() {
-        System.out.println("MATRIX " + mIRowCount + "*" + mIColumnCount);
-        for (int row = 0; row < mIRowCount; row++) {
-            int[] columnIndices = mIColumnIndices[row];
-            if (columnIndices == null) {
-                for (int col = 0; col < mIColumnCount; col++) {
-                    System.out.print("0 ");
+        System.out.println ( "MATRIX " + this.rowCount + "*" + this.colCount );
+        for ( int row = 0; row < this.rowCount; row++ ) {
+            int[] columnIndices = this.columnIndices[ row ];
+            if ( columnIndices == null ) {
+                for ( int col = 0; col < this.colCount; col++ ) {
+                    System.out.print ( "0 " );
                 }
             } else {
                 int prevColumnIndex = 0;
-                for (int colIndex = 0; colIndex < mICounters[row]; colIndex++) {
-                    int currColumnIndex = columnIndices[colIndex];
-
-                    for (int col = prevColumnIndex; col < currColumnIndex; col++) {
-                        System.out.print("0 ");
+                for ( int colIndex = 0; colIndex < this.nzCounters[ row ]; colIndex++ ) {
+                    int currColumnIndex = columnIndices[ colIndex ];
+                    // put zeroes
+                    for ( int col = prevColumnIndex; col < currColumnIndex; col++ ) {
+                        System.out.print ( "0 " );
                     }
-
-                    System.out.print((int) mFValues[row][colIndex] + " ");
+                    System.out.print ( (int) this.nzValues[ row ][ colIndex ] + " " );
                     prevColumnIndex = currColumnIndex + 1;
                 }
-
-                for (int col = prevColumnIndex; col < mIColumnCount; col++) {
-                    System.out.print("0 ");
+                // put trailing zeroes
+                for ( int col = prevColumnIndex; col < this.colCount; col++ ) {
+                    System.out.print ( "0 " );
                 }
             }
 
-            System.out.println();
+            System.out.println ();
         }
+
     }
 
-    public void addEmptyColumns(int columns) {
-        mIColumnCount += columns;
+
+    public void addEmptyColumns ( int columns ) {
+        this.colCount += columns;
     }
 
-    public double[] mult(double[] vector) {
-        if (mIColumnCount != vector.length) {
+    public float[] mult ( float[] vector ) {
+        if ( this.colCount != vector.length ) {
             return null;
         }
 
-        int n = mIRowCount;
-        double[] result = new double[n];
-        for (int row = 0; row < n; row++) {
-            double sum = 0.0;
-
-            int[] nzIndexes = mIColumnIndices[row];
-            int nzLength = mICounters[row];
-            if (nzLength == 0) {
+        int n = this.rowCount;
+        float[] result = new float[ n ];
+        for ( int row = 0; row < n; row++ ) {
+            float sum = 0.0f;
+            // go over all non-zero column of this row
+            int[] nzIndexes = this.columnIndices[ row ];
+            int nzLength = nzCounters[ row ];
+            if ( nzLength == 0 ) {
                 continue;
             }
 
-            for (int colIndex = 0; colIndex < nzLength; colIndex++) {
-                double c = vector[nzIndexes[colIndex]];
-
-                sum += (mFValues[row][colIndex] * c);
+            for ( int colIndex = 0; colIndex < nzLength; colIndex++ ) {
+                float c = vector[ nzIndexes[ colIndex ] ];
+                sum += ( this.nzValues[ row ][ colIndex ] * c );
             }
-
-            result[row] = sum;
+            result[ row ] = sum;
         }
-
         return result;
     }
 
-    public double getSum(int row) {
-        double sum = 0.0;
 
-        int nzLength = mICounters[row];
-
-        if (nzLength == 0) {
-            return 0.0;
+    public float getSum ( int row ) {
+        float sum = 0.0f;
+        // go over all non-zero column of this row
+        int nzLength = nzCounters[ row ];
+        if ( nzLength == 0 ) {
+            return 0.0f;
         }
 
-        for (int colIndex = 0; colIndex < nzLength; colIndex++) {
-            sum += mFValues[row][colIndex];
+        for ( int colIndex = 0; colIndex < nzLength; colIndex++ ) {
+            sum += this.nzValues[ row ][ colIndex ];
         }
 
         return sum;
     }
 
-    public double getSum(int row, boolean[] toConsider) {
-        double sum = 0.0;
 
-        int nzLength = mICounters[row];
-
-        if (nzLength == 0) {
-            return 0.0;
+    public float getSum ( int row, boolean[] toConsider ) {
+        float sum = 0.0f;
+        int nzLength = nzCounters[ row ];
+        if ( nzLength == 0 ) {
+            return 0.0f;
         }
 
-        for (int colIndex = 0; colIndex < nzLength; colIndex++) {
-            if (toConsider[mIColumnIndices[row][colIndex]]) {
-                sum += mFValues[row][colIndex];
+        for ( int colIndex = 0; colIndex < nzLength; colIndex++ ) {
+            if ( toConsider[ this.columnIndices[ row ][ colIndex ] ] ) {
+                sum += this.nzValues[ row ][ colIndex ];
             }
         }
-
         return sum;
     }
 
     public int getNzCount() {
         int allNz = 0;
-        for (int i : mICounters) {
+        for ( int i : this.nzCounters ) {
             allNz += i;
         }
-
         return allNz;
     }
 
     public void normalize() {
-        double minValue = 0.0;
-        double maxValue = 0.0;
+        float minValue = 0.0f;
+        float maxValue = 0.0f;
         boolean isFirst = true;
-        for(int i = 0; i < mIRowCount; i++) {
-            if(mICounters[i] == 0) {
+        for ( int i = 0; i < this.rowCount; i++ ) {
+            if ( this.nzCounters[ i ] == 0 ) {
                 continue;
             }
 
-            for(int j = 0; j < mICounters[i]; j++) {
-                double val = mFValues[i][j];
-
-                if(isFirst) {
+            for ( int j = 0; j < this.nzCounters[ i ]; j++ ) {
+                float val = this.nzValues[ i ][ j ];
+                if ( isFirst ) {
                     minValue = val;
                     maxValue = val;
                     isFirst = false;
                 } else {
-                    if(val < minValue) {
+                    if ( val < minValue ) {
                         minValue = val;
                     }
-                    if(val > maxValue) {
+                    if ( val > maxValue ) {
                         maxValue = val;
                     }
                 }
             }
         }
 
-        for(int i = 0; i < mIRowCount; i++) {
-            if(mICounters[i] == 0) {
+        for ( int i = 0; i < this.rowCount; i++ ) {
+            if ( this.nzCounters[ i ] == 0 ) {
                 continue;
             }
-
-            for(int j = 0; j < mICounters[i]; j++) {
-                mFValues[i][j] /= maxValue;
+            for ( int j = 0; j < this.nzCounters[ i ]; j++ ) {
+                this.nzValues[ i ][ j ] /= maxValue;
             }
         }
     }
 
-    protected double[][] mFValues;
-    protected int[][] mIColumnIndices;
-    protected int[] mICounters;
-    protected int mIColumnCount;
-    protected int mIRowCount;
 }
