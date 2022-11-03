@@ -25,32 +25,45 @@
 package com.joechamm.eigenfluids;
 
 import android.app.Activity;
+import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.os.PowerManager.WakeLock;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.View.OnTouchListener;
+import android.view.Window;
+import android.view.WindowManager;
 
-public class EigenFluidsActivity extends Activity {
+public class EigenFluidsActivity extends Activity implements OnTouchListener {
 
-    private GLSurfaceView mGLView;
+    EigenFluidsRenderer renderer;
+    WakeLock wakeLock;
 
+    /* (non-Javadoc)
+     * @see android.app.Activity#onCreate(android.os.Bundle)
+     */
     @Override
-    public void onCreate ( Bundle savedInstanceState ) {
+    protected void onCreate ( Bundle savedInstanceState ) {
         super.onCreate ( savedInstanceState );
+        requestWindowFeature ( Window.FEATURE_NO_TITLE );
+        getWindow ().setFlags ( WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN );
+        GLSurfaceView view = new GLSurfaceView ( this );
+        renderer = new EigenFluidsRenderer ( 49, 49, 49, 0.005f, 0.1f );
+        view.setRenderer ( renderer );
+        view.setOnTouchListener ( this );
+        setContentView ( view );
 
-        mGLView = new EigenFluidsSurfaceView ( this );
-        setContentView ( mGLView );
+        PowerManager powerManager = (PowerManager) getSystemService ( Context.POWER_SERVICE );
+        wakeLock = powerManager.newWakeLock ( PowerManager.FULL_WAKE_LOCK, "eigenfluids:EigenFluidsActivity" );
     }
 
     @Override
-    protected void onPause () {
-        super.onPause ();
+    public boolean onTouch ( View v, MotionEvent evt ) {
 
-        mGLView.onPause ();
+        renderer.handleTouchEvent ( evt );
+        return true;
     }
 
-    @Override
-    protected void onResume () {
-        super.onResume ();
-
-        mGLView.onResume ();
-    }
 }

@@ -40,7 +40,7 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
     private static final LEFuncs lapEFuncs = new LEFuncs ();
 
-    private static final String TAG = "eigenfluids:EigenFluidsRenderer";
+    private static final String TAG = "EigenFluidsRenderer";
     private final float[] mMVPMatrix = new float[ 16 ];
     private final float[] mProjectionMatrix = new float[ 16 ];
     private final float[] mModelMatrix = new float[ 16 ];
@@ -49,7 +49,7 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
     private static final int DEN_RESOLUTION = 36;
     private static final int DIMENSION = 36;
 
-    public static final boolean RENDER_VELOCITY = true;
+    public static final boolean RENDER_VELOCITY = false;
     public static final boolean RENDER_DENSITY = false;
 
     public static int FORCE_MODE = 2;
