@@ -24,348 +24,132 @@
 
 package com.joechamm.eigenfluids;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
-import java.nio.ShortBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
+import android.util.Log;
 import android.view.MotionEvent;
 
 public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
-    public EigenFluidsRenderer ( int gridRes, int N, int densRes, float visc, float dt ) {
-        mFs = new LEFuncs ( gridRes, N, densRes );
-        mFs.visc = visc;
-        mFs.dt = dt;
-        mFs.expand_basis ();
+    private static final LEFuncs lapEFuncs = new LEFuncs ();
 
-        mIsPressed = false;
-//		mDispVel = true;
-        mDispVel = false;
-        mDispDens = true;
-        mForceMode = 2;
-        mDensityMode = 1;
+    private static final String TAG = "eigenfluids:EigenFluidsRenderer";
+    private final float[] mMVPMatrix = new float[ 16 ];
+    private final float[] mProjectionMatrix = new float[ 16 ];
+    private final float[] mModelMatrix = new float[ 16 ];
 
-        mX = 0.5f;
-        mY = 0.5f;
-        mWinW = 1;
-        mWinH = 1;
-        mForce = 100.0f;
-        mSource = 1.0f;
+    private static final int VEL_RESOLUTION = 36;
+    private static final int DEN_RESOLUTION = 36;
+    private static final int DIMENSION = 36;
 
-        p1 = new float[ 2 ];
-        p2 = new float[ 2 ];
+    public static final boolean RENDER_VELOCITY = true;
+    public static final boolean RENDER_DENSITY = false;
 
-//		initVelocityBuffers();
-//		initDensityBuffers();
+    public static int FORCE_MODE = 2;
+    public static int DENSITY_MODE = 0;
+    public static int VELOCITY_MODE = 1;
 
-//		resizeVelocityGrid();
-//		resizeDensityGrid();
+    public static boolean IS_PRESSED = false;
+    public static float PRESS_X = 0.5f;
+    public static float PRESS_Y = 0.5f;
+
+    private static int WIN_WIDTH;
+    private static int WIN_HEIGHT;
+
+    public static float[] POS_1 = new float[ 2 ];
+    public static float[] POS_2 = new float[ 2 ];
+
+    public static ArrayList<Float> DRAG_PATH_X;
+    public static ArrayList<Float> DRAG_PATH_Y;
+
+    public VelocityBuffer velocityBuffer = null;
+    public DensityBuffer densityBuffer = null;
+
+    @Override
+    public void onSurfaceCreated ( GL10 unused, EGLConfig config ) {
+
+        GLES20.glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
+
+        LEFuncs.init ( VEL_RESOLUTION, DEN_RESOLUTION, DIMENSION );
+        LEFuncs.expand_basis ();
+
+        velocityBuffer = new VelocityBuffer ();
+        densityBuffer = new DensityBuffer ();
+
+        velocityBuffer.updateBuffers ();
+        densityBuffer.updateBuffers ();
     }
 
-    public void onDrawFrame ( GL10 gl ) {
-        mFs.step ();
+    @Override
+    public void onSurfaceChanged ( GL10 unused, int width, int height ) {
+        WIN_WIDTH = width;
+        WIN_HEIGHT = height;
 
-        gl.glClear ( GL10.GL_COLOR_BUFFER_BIT );
+        Matrix.setIdentityM ( mModelMatrix, 0 );
+        Matrix.orthoM ( mProjectionMatrix, 0, 0.0f, 1.0f, 0.0f, 1.0f, - 1.0f, 1.0f );
+        Matrix.multiplyMM ( mMVPMatrix, 0, mProjectionMatrix, 0, mModelMatrix, 0 );
 
-        gl.glMatrixMode ( GL10.GL_MODELVIEW );
-        gl.glLoadIdentity ();
-        // gl.glScalef(1.0f, 2.0f, 1.0f);
+        GLES20.glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
+        GLES20.glLineWidth ( 1.0f );
+        GLES20.glFrontFace ( GLES20.GL_CCW );
 
-        gl.glEnableClientState ( GL10.GL_VERTEX_ARRAY );
-        gl.glEnableClientState ( GL10.GL_COLOR_ARRAY );
+        GLES20.glViewport ( 0, 0, WIN_WIDTH, WIN_HEIGHT );
 
-        if ( mDispDens ) {
-            fillDensityBuffers ();
-            renderDensity ( gl );
+    }
+
+    @Override
+    public void onDrawFrame ( GL10 unused ) {
+        LEFuncs.step ();
+
+        GLES20.glClear ( GLES20.GL_COLOR_BUFFER_BIT );
+
+        if ( RENDER_DENSITY ) {
+            densityBuffer.updateBuffers ();
+            densityBuffer.draw ( mMVPMatrix );
         }
 
-        if ( mDispVel ) {
-
-            fillVelocityBuffers ();
-            renderVelocity ( gl );
+        if ( RENDER_VELOCITY ) {
+            velocityBuffer.updateBuffers ();
+            velocityBuffer.draw ( mMVPMatrix );
         }
 
+
     }
 
-    public void onSurfaceChanged ( GL10 gl, int w, int h ) {
-        mWinW = w;
-        mWinH = h;
+    public static int loadShader ( int type, String shaderCode ) {
+        int shader = GLES20.glCreateShader ( type );
 
-        gl.glClearColor ( 0.0f, 0.0f, 0.0f, 1.0f );
-        gl.glClear ( GL10.GL_COLOR_BUFFER_BIT );
-        gl.glLineWidth ( 1.0f );
-        gl.glFrontFace ( GL10.GL_CCW );
+        GLES20.glShaderSource ( shader, shaderCode );
+        GLES20.glCompileShader ( shader );
 
-//		gl.glEnableClientState(GL10.GL_VERTEX_ARRAY);
-//		gl.glEnableClientState(GL10.GL_COLOR_ARRAY);
-
-        gl.glViewport ( 0, 0, mWinW, mWinH );
-        gl.glMatrixMode ( GL10.GL_PROJECTION );
-        gl.glLoadIdentity ();
-        gl.glOrthof ( 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f );
-
-        /*
-         * float ratio = (float)w / h;
-         * gl.glMatrixMode(GL10.GL_PROJECTION);
-         * gl.glLoadIdentity();
-         * gl.glFrustumf(- ratio, ratio, - 1.0f, 1.0f, 1.0f, 10.0f);
-         *
-         */
+        return shader;
     }
 
-    public void onSurfaceCreated ( GL10 gl, EGLConfig config ) {
-
-        initVelocityBuffers ();
-        initDensityBuffers ();
-
-        resizeVelocityGrid ();
-        resizeDensityGrid ();
+    public static void checkGLError ( String glOperation ) {
+        int error;
+        while ( ( error = GLES20.glGetError () ) != GLES20.GL_NO_ERROR ) {
+            Log.e ( TAG, glOperation + ": glError " + error );
+            throw new RuntimeException ( glOperation + ": glError " + error );
+        }
     }
 
     public void renderVelocity ( GL10 gl ) {
-        gl.glVertexPointer ( 2, GL10.GL_FLOAT, 0, mFVelVertexBuffer );
-        gl.glColorPointer ( 4, GL10.GL_UNSIGNED_BYTE, 0, mBVelColorBuffer );
-        gl.glDrawArrays ( GL10.GL_LINES, 0, mFs.mx * mFs.my * 2 );
+        if ( velocityBuffer != null ) {
+            velocityBuffer.draw ( mMVPMatrix );
+        }
     }
 
     public void renderDensity ( GL10 gl ) {
-        int count = ( mFs.dmx - 1 ) * ( mFs.dmy - 1 ) * 6;
-        gl.glVertexPointer ( 2, GL10.GL_FLOAT, 0, mFDensVertexBuffer );
-        gl.glColorPointer ( 4, GL10.GL_UNSIGNED_BYTE, 0, mBDensColorBuffer );
-        gl.glDrawElements ( GL10.GL_TRIANGLES, count, GL10.GL_SHORT, mUSDensIndexBuffer );
-    }
-
-    public void initVelocityBuffers () {
-        final byte r0 = (byte) 255;
-        final byte g0 = (byte) 0;
-        final byte b0 = (byte) 0;
-
-        final byte r1 = (byte) 255;
-        final byte g1 = (byte) 0;
-        final byte b1 = (byte) 0;
-
-        float x0, x1, y0, y1, dx, dy;
-        int j0, j1;
-
-        dx = 1.0f / (float) mFs.mx;
-        dy = 1.0f / (float) mFs.my;
-
-        mVelVertices = new float[ mFs.mx * mFs.my * 2 * 2 ];
-        mVelColors = new byte[ mFs.mx * mFs.my * 2 * 4 ];
-
-        for ( int row = 0; row < mFs.my; ++ row ) {
-            for ( int col = 0; col < mFs.mx; ++ col ) {
-                int i = row * mFs.mx + col;
-
-                j0 = i * 2;
-                j1 = j0 + 1;
-
-                x0 = (float) col * dx;
-                y0 = (float) row * dy;
-
-                x1 = x0;
-                y1 = y0;
-
-                mVelVertices[ j0 * 2 ] = x0;
-                mVelVertices[ j0 * 2 + 1 ] = y0;
-
-                mVelVertices[ j1 * 2 ] = x1;
-                mVelVertices[ j1 * 2 + 1 ] = y1;
-
-                mVelColors[ j0 * 4 ] = r0;
-                mVelColors[ j0 * 4 + 1 ] = g0;
-                ;
-                mVelColors[ j0 * 4 + 2 ] = b0;
-                mVelColors[ j0 * 4 + 3 ] = (byte) 255;
-
-                mVelColors[ j1 * 4 ] = r1;
-                mVelColors[ j1 * 4 + 1 ] = g1;
-                mVelColors[ j1 * 4 + 2 ] = b1;
-                mVelColors[ j1 * 4 + 3 ] = (byte) 255;
-            }
+        if ( densityBuffer != null ) {
+            densityBuffer.draw ( mMVPMatrix );
         }
-
-        ByteBuffer velVbb = ByteBuffer.allocateDirect ( mVelVertices.length * 4 );
-        velVbb.order ( ByteOrder.nativeOrder () );
-        mFVelVertexBuffer = velVbb.asFloatBuffer ();
-        mFVelVertexBuffer.put ( mVelVertices );
-        mFVelVertexBuffer.position ( 0 );
-
-        mBVelColorBuffer = ByteBuffer.allocateDirect ( mVelColors.length );
-        mBVelColorBuffer.order ( ByteOrder.nativeOrder () );
-        mBVelColorBuffer.put ( mVelColors );
-        mBVelColorBuffer.position ( 0 );
-    }
-
-    public void resizeVelocityGrid () {
-        float x0, x1, y0, y1, dx, dy;
-        int j0, j1;
-
-        dx = 1.0f / (float) mFs.mx;
-        dy = 1.0f / (float) mFs.my;
-
-        for ( int row = 0; row < mFs.my; ++ row ) {
-            for ( int col = 0; col < mFs.mx; ++ col ) {
-                int i = row * mFs.mx + col;
-
-                j0 = i * 2;
-                j1 = j0 + 1;
-
-                x0 = (float) col * dx;
-                y0 = (float) row * dy;
-
-                x1 = x0;
-                y1 = y0;
-
-                mVelVertices[ j0 * 2 ] = x0;
-                mVelVertices[ j0 * 2 + 1 ] = y0;
-
-                mVelVertices[ j1 * 2 ] = x1;
-                mVelVertices[ j1 * 2 + 1 ] = y1;
-            }
-        }
-
-        mFVelVertexBuffer.put ( mVelVertices );
-        mFVelVertexBuffer.position ( 0 );
-    }
-
-    public void fillVelocityBuffers () {
-        final float dispScale = 5.0f;
-
-        float dx, dy, vx, vy;
-
-        dx = 1.0f / (float) mFs.mx;
-        dy = 1.0f / (float) mFs.my;
-
-        for ( int row = 0; row < mFs.my; ++ row ) {
-            for ( int col = 0; col < mFs.mx; ++ col ) {
-                int j0 = ( row * mFs.mx + col ) * 2;
-                int j1 = j0 + 1;
-
-                vx = mFs.vfield[ 0 ][ col + 1 ][ row + 1 ];
-                vy = mFs.vfield[ 1 ][ col + 1 ][ row + 1 ];
-
-                mVelVertices[ j1 * 2 ] = mVelVertices[ j0 * 2 ] + vx * dx * dispScale;
-                mVelVertices[ j1 * 2 + 1 ] = mVelVertices[ j0 * 2 + 1 ] + vy * dy * dispScale;
-            }
-        }
-
-        mFVelVertexBuffer.put ( mVelVertices );
-        mFVelVertexBuffer.position ( 0 );
-    }
-
-    public void initDensityBuffers () {
-
-        mDensVertices = new float[ mFs.dmx * mFs.dmy * 2 ];
-        mDensColors = new byte[ mFs.dmx * mFs.dmy * 4 ];
-        mDensIndices = new short[ ( mFs.dmx - 1 ) * ( mFs.dmy - 1 ) * 6 ];
-
-        for ( int i = 0; i < mFs.dmx * mFs.dmy; i++ ) {
-
-            mDensVertices[ i * 2 ] = 0.0f;
-            mDensVertices[ i * 2 + 1 ] = 0.0f;
-
-            mDensColors[ i * 4 ] = 0;
-            mDensColors[ i * 4 + 1 ] = 0;
-            mDensColors[ i * 4 + 2 ] = 0;
-            mDensColors[ i * 4 + 3 ] = (byte) 255;
-        }
-
-        for ( int i = 0; i < mFs.dmx - 1; i++ ) {
-            for ( int j = 0; j < mFs.dmy - 1; j++ ) {
-                int idx = ( ( mFs.dmy - 1 ) * i + j ) * 6;
-
-                // 1st triangle
-                mDensIndices[ idx ] = (short) ( mFs.dmy * i + j );
-                mDensIndices[ idx + 1 ] = (short) ( mFs.dmy * i + j + 1 );
-                mDensIndices[ idx + 2 ] = (short) ( mFs.dmy * ( i + 1 ) + j + 1 );
-
-                // 2nd triangle
-                mDensIndices[ idx + 3 ] = (short) ( mFs.dmy * ( i + 1 ) + j + 1 );
-                mDensIndices[ idx + 4 ] = (short) ( mFs.dmy * ( i + 1 ) + j );
-                mDensIndices[ idx + 5 ] = (short) ( mFs.dmy * i + j );
-            }
-        }
-
-        ByteBuffer vertBB = ByteBuffer.allocateDirect ( mDensVertices.length * 4 );
-        vertBB.order ( ByteOrder.nativeOrder () );
-        mFDensVertexBuffer = vertBB.asFloatBuffer ();
-        mFDensVertexBuffer.put ( mDensVertices );
-        mFDensVertexBuffer.position ( 0 );
-
-        ByteBuffer idxBB = ByteBuffer.allocateDirect ( mDensIndices.length * 2 );
-        idxBB.order ( ByteOrder.nativeOrder () );
-        mUSDensIndexBuffer = idxBB.asShortBuffer ();
-        mUSDensIndexBuffer.put ( mDensIndices );
-        mUSDensIndexBuffer.position ( 0 );
-
-        mBDensColorBuffer = ByteBuffer.allocateDirect ( mDensColors.length );
-        mBDensColorBuffer.order ( ByteOrder.nativeOrder () );
-        mBDensColorBuffer.put ( mDensColors );
-        mBDensColorBuffer.position ( 0 );
-    }
-
-    public void resizeDensityGrid () {
-        float x, y, dx, dy;
-
-        dx = 1.0f / (float) ( mFs.dmx - 1 );
-        dy = 1.0f / (float) ( mFs.dmy - 1 );
-
-        for ( int i = 0; i < mFs.dmx; i++ ) {
-            x = ( (float) i ) * dx;
-
-            for ( int j = 0; j < mFs.dmy; j++ ) {
-                y = ( (float) j ) * dy;
-
-                int idx = ( i * mFs.dmy + j ) * 2;
-
-                mDensVertices[ idx ] = x;
-                mDensVertices[ idx + 1 ] = y;
-            }
-        }
-
-        fillDensityBuffers ();
-    }
-
-    public void fillDensityBuffers () {
-        byte rval = (byte) 255;
-        byte gval = (byte) 255;
-        byte bval = (byte) 0;
-
-
-        for ( int i = 0; i < mFs.dmx; i++ ) {
-            for ( int j = 0; j < mFs.dmy; j++ ) {
-
-                int idx = ( i * mFs.dmy + j ) * 4;
-
-//				float fdens = mFs.density_field[i][j];
-//				byte bdens = (byte)(fdens * 255.0f);
-//				mDensColors[idx] = bdens;
-//				mDensColors[idx + 1] = bdens;
-//				mDensColors[idx + 2] = bdens;
-
-                if ( i / 8 + j / 8 % 2 == 0 ) {
-                    mDensColors[ idx + 0 ] = rval;
-                    mDensColors[ idx + 1 ] = gval;
-                    mDensColors[ idx + 2 ] = bval;
-                } else {
-                    mDensColors[ idx + 0 ] = (byte) 0;
-                    mDensColors[ idx + 1 ] = (byte) 0;
-                    mDensColors[ idx + 2 ] = (byte) 0;
-                }
-                mDensColors[ idx + 3 ] = (byte) 255;
-            }
-        }
-
-        mBDensColorBuffer.put ( mDensColors );
-        mBDensColorBuffer.position ( 0 );
     }
 
     public void handleTouchEvent ( MotionEvent evt ) {
@@ -387,125 +171,95 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
     }
 
     public void handleActionDown ( MotionEvent evt ) {
-        mIsPressed = true;
-        mX = evt.getX ();
-        mY = evt.getY ();
+        IS_PRESSED = true;
+        PRESS_X = evt.getX ();
+        PRESS_Y = evt.getY ();
 
-        if ( this.mForceMode == 1 ) {
-            this.drag_path_x = new ArrayList<Float> ();
-            this.drag_path_y = new ArrayList<Float> ();
-            drag_path_x.add ( Float.valueOf ( mX ) );
-            drag_path_y.add ( Float.valueOf ( mY ) );
-        } else if ( this.mForceMode == 2 ) {
-            this.p1[ 0 ] = evt.getX () / (float) mWinW;
-            this.p1[ 1 ] = evt.getY () / (float) mWinH;
+        if ( FORCE_MODE == 1 ) {
+            DRAG_PATH_X = new ArrayList<Float> ();
+            DRAG_PATH_Y = new ArrayList<Float> ();
+            DRAG_PATH_X.add ( Float.valueOf ( PRESS_X ) );
+            DRAG_PATH_Y.add ( Float.valueOf ( PRESS_Y ) );
+        } else if ( FORCE_MODE == 2 ) {
+            POS_1[ 0 ] = evt.getX () / (float) WIN_WIDTH;
+            POS_1[ 1 ] = evt.getY () / (float) WIN_HEIGHT;
+
         }
 
     }
 
     public void handleActionMove ( MotionEvent evt ) {
-        if ( ! mIsPressed ) {
+        if ( ! IS_PRESSED ) {
             return;
         }
 
-        mX = evt.getX ();
-        mY = evt.getY ();
+        PRESS_X = evt.getX ();
+        PRESS_Y = evt.getY ();
 
-        if ( mDensityMode == 1 ) {
-            int i = (int) ( ( mX * (float) mFs.dmx ) / (float) mWinW );
-            int j = (int) ( ( mY * (float) mFs.dmy ) / (float) mWinH );
+        if ( DENSITY_MODE == 1 ) {
+            int i = (int) ( ( PRESS_X * (float) DEN_RESOLUTION ) / (float) WIN_WIDTH );
+            int j = (int) ( ( PRESS_Y * (float) DEN_RESOLUTION ) / (float) WIN_HEIGHT );
 
-            if ( i >= 0 && i < this.mFs.dmx && j >= 0 && j < this.mFs.dmy ) {
-                this.mFs.density_field[ i ][ j ] = mSource;
+            if ( i >= 2 && i < DEN_RESOLUTION - 2 && j >= 2 && j < DEN_RESOLUTION - 2 ) {
+                for ( int i0 = i - 2; i0 < i + 2; ++ i0 ) {
+                    for ( int j0 = j - 2; j0 < j + 2; ++ j0 ) {
+                        LEFuncs.DENSITY_FIELD[ i0 ][ j0 ] = 1.0f;
+                    }
+                }
             }
-        }
-
-        if ( this.mForceMode == 1 ) {
-            drag_path_x.add ( Float.valueOf ( mX ) );
-            drag_path_y.add ( Float.valueOf ( mY ) );
-        } else if ( this.mForceMode == 2 ) {
-            this.p2[ 0 ] = mX / (float) mWinW;
-            this.p2[ 1 ] = mY / (float) mWinH;
+        } else if ( FORCE_MODE == 1 ) {
+            DRAG_PATH_X.add ( Float.valueOf ( PRESS_X ) );
+            DRAG_PATH_Y.add ( Float.valueOf ( PRESS_Y ) );
+        } else if ( FORCE_MODE == 2 ) {
+            POS_2[ 0 ] = PRESS_X / (float) WIN_WIDTH;
+            POS_2[ 1 ] = PRESS_Y / (float) WIN_HEIGHT;
 
             float[][] force_path = new float[ 2 ][ 4 ];
-            force_path[ 0 ][ 0 ] = p1[ 0 ];
-            force_path[ 0 ][ 1 ] = p1[ 1 ];
-            force_path[ 0 ][ 2 ] = ( p2[ 0 ] - p1[ 0 ] ) * this.mForce;
-            force_path[ 0 ][ 3 ] = ( p2[ 1 ] - p1[ 1 ] ) * this.mForce;
+            force_path[ 0 ][ 0 ] = POS_1[ 0 ];
+            force_path[ 0 ][ 1 ] = POS_1[ 1 ];
+            force_path[ 0 ][ 2 ] = ( POS_2[ 0 ] - POS_1[ 0 ] ) * LEFuncs.FORCE_MAG;
+            force_path[ 0 ][ 3 ] = ( POS_2[ 1 ] - POS_1[ 1 ] ) * LEFuncs.FORCE_MAG;
 
-            mFs.stir ( force_path );
+            LEFuncs.stir ( force_path );
 
-            this.p1[ 0 ] = p2[ 0 ];
-            this.p1[ 1 ] = p2[ 1 ];
+            POS_1[ 0 ] = POS_2[ 0 ];
+            POS_1[ 1 ] = POS_2[ 1 ];
         }
+
     }
 
     public void handleActionCancel ( MotionEvent evt ) {
-        mIsPressed = false;
+        IS_PRESSED = false;
         return;
     }
 
     public void handleActionUp ( MotionEvent evt ) {
-        if ( mForceMode == 1 ) {
-            float[][] force_path = new float[ drag_path_x.size () ][ 4 ];
+        if ( FORCE_MODE == 1 ) {
+            float[][] force_path = new float[ DRAG_PATH_X.size () ][ 4 ];
 
-            Iterator<Float> itr_x = drag_path_x.iterator ();
-            Iterator<Float> itr_y = drag_path_y.iterator ();
+            Iterator<Float> itr_x = DRAG_PATH_X.iterator ();
+            Iterator<Float> itr_y = DRAG_PATH_Y.iterator ();
 
             int i = 0;
             while ( itr_x.hasNext () ) {
                 Float x = itr_x.next ();
                 Float y = itr_y.next ();
-                force_path[ i ][ 0 ] = x.floatValue () / (float) ( mWinW );
-                force_path[ i ][ 1 ] = y.floatValue () / (float) ( mWinH );
+                force_path[ i ][ 0 ] = x.floatValue () / (float) ( WIN_WIDTH );
+                force_path[ i ][ 1 ] = y.floatValue () / (float) ( WIN_HEIGHT );
                 i++;
             }
 
             for ( i = 0; i < force_path.length - 1; i++ ) {
-                force_path[ i ][ 2 ] = ( force_path[ i + 1 ][ 0 ] - force_path[ i ][ 0 ] ) * this.mForce;
-                force_path[ i ][ 3 ] = ( force_path[ i + 1 ][ 1 ] - force_path[ i ][ 1 ] ) * this.mForce;
+                force_path[ i ][ 2 ] = ( force_path[ i + 1 ][ 0 ] - force_path[ i ][ 0 ] ) * LEFuncs.FORCE_MAG;
+                force_path[ i ][ 3 ] = ( force_path[ i + 1 ][ 1 ] - force_path[ i ][ 1 ] ) * LEFuncs.FORCE_MAG;
             }
 
-            mFs.stir ( force_path );
+            LEFuncs.stir ( force_path );
         }
 
-        mIsPressed = false;
-        mX = evt.getX ();
-        mY = evt.getY ();
+        IS_PRESSED = false;
+        PRESS_X = evt.getX ();
+        PRESS_Y = evt.getY ();
     }
 
-    public LEFuncs mFs;
-
-    public float[] p1;
-    public float[] p2;
-
-    public ArrayList<Float> drag_path_x;
-    public ArrayList<Float> drag_path_y;
-
-    public int mForceMode;
-    public int mDensityMode;
-
-    private boolean mIsPressed;
-    private boolean mDispVel;
-    private boolean mDispDens;
-    private float mX;
-    private float mY;
-    private int mWinW;
-    private int mWinH;
-    private float mForce;
-    private float mSource;
-
-    private float[] mVelVertices;
-    private byte[] mVelColors;
-
-    private float[] mDensVertices;
-    private short[] mDensIndices;
-    private byte[] mDensColors;
-
-    private FloatBuffer mFVelVertexBuffer;
-    private ByteBuffer mBVelColorBuffer;
-
-    private FloatBuffer mFDensVertexBuffer;
-    private ShortBuffer mUSDensIndexBuffer;
-    private ByteBuffer mBDensColorBuffer;
 }

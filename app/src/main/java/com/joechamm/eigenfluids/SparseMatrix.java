@@ -23,13 +23,14 @@
  */
 
 package com.joechamm.eigenfluids;
+
 public class SparseMatrix {
 
+    public int colCount = 0;
+    public int rowCount = 0;
     protected float[][] nzValues;
     protected int[][] columnIndices;
     protected int[] nzCounters;
-    public int colCount = 0;
-    public int rowCount = 0;
 
     public SparseMatrix ( int colCount, int rowCount ) {
         this.rowCount = rowCount;
@@ -138,7 +139,7 @@ public class SparseMatrix {
         }
     }
 
-    public void dump() {
+    public void dump () {
         System.out.println ( "MATRIX " + this.rowCount + "*" + this.colCount );
         for ( int row = 0; row < this.rowCount; row++ ) {
             int[] columnIndices = this.columnIndices[ row ];
@@ -162,11 +163,11 @@ public class SparseMatrix {
                     System.out.print ( "0.0 " );
                 }
             }
-            System.out.println();
+            System.out.println ();
         }
     }
 
-    public void dumpInt() {
+    public void dumpInt () {
         System.out.println ( "MATRIX " + this.rowCount + "*" + this.colCount );
         for ( int row = 0; row < this.rowCount; row++ ) {
             int[] columnIndices = this.columnIndices[ row ];
@@ -258,7 +259,7 @@ public class SparseMatrix {
         return sum;
     }
 
-    public int getNzCount() {
+    public int getNzCount () {
         int allNz = 0;
         for ( int i : this.nzCounters ) {
             allNz += i;
@@ -266,7 +267,7 @@ public class SparseMatrix {
         return allNz;
     }
 
-    public void normalize() {
+    public void normalize () {
         float minValue = 0.0f;
         float maxValue = 0.0f;
         boolean isFirst = true;

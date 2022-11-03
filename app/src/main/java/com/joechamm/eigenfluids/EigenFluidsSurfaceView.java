@@ -24,33 +24,66 @@
 
 package com.joechamm.eigenfluids;
 
-import android.app.Activity;
+import android.content.Context;
 import android.opengl.GLSurfaceView;
-import android.os.Bundle;
+import android.view.MotionEvent;
 
-public class EigenFluidsActivity extends Activity {
+public class EigenFluidsSurfaceView extends GLSurfaceView {
 
-    private GLSurfaceView mGLView;
+    /**
+     * @param context
+     */
 
-    @Override
-    public void onCreate ( Bundle savedInstanceState ) {
-        super.onCreate ( savedInstanceState );
+    private final EigenFluidsRenderer mRenderer;
 
-        mGLView = new EigenFluidsSurfaceView ( this );
-        setContentView ( mGLView );
+    public EigenFluidsSurfaceView ( Context context ) {
+        super ( context );
+        // TODO Auto-generated constructor stub
+
+        setEGLContextClientVersion ( 2 );
+
+        mRenderer = new EigenFluidsRenderer ();
+
+        setRenderer ( mRenderer );
+
+        //	setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
     }
 
-    @Override
-    protected void onPause () {
-        super.onPause ();
-
-        mGLView.onPause ();
-    }
+//	private final float TOUCH_SCALE_FACTOR = 180.0f / 320.0f;
+//	private float mPreviousX;
+//	private float mPreviousY;
 
     @Override
-    protected void onResume () {
-        super.onResume ();
+    public boolean onTouchEvent ( MotionEvent e ) {
 
-        mGLView.onResume ();
+        mRenderer.handleTouchEvent ( e );
+        requestRender ();
+
+	/*	float x = e.getX();
+		float y = e.getY();
+
+		switch(e.getAction()) {
+		case MotionEvent.ACTION_MOVE:
+			float dx = x - mPreviousX;
+			float dy = y - mPreviousY;
+
+			if(y > getHeight() / 2) {
+				dx = - dx;
+			}
+
+			if(x < getWidth() / 2) {
+				dy = - dy;
+			}
+			break;
+		case MotionEvent.ACTION_MOVE:
+			break;
+		case MotionEvent.ACTION_MOVE:
+			break;
+		case MotionEvent.ACTION_MOVE:
+			break;
+		}*/
+
+        return true;
     }
+
 }

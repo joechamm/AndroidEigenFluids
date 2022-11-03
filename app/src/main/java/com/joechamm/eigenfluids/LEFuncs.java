@@ -26,159 +26,146 @@ package com.joechamm.eigenfluids;
 
 public class LEFuncs {
 
-    public int mx;
-    public int my;
+    public static final float VISCOSITY = 0.005f;
+    public static final float DT = 0.1f;
+    public static final float FORCE_MAG = 100.0f;
+    public static final float DENSITY_VALUE = 1.0f;
+    public static final float PDT_MULT = 1.0f;
+    public static final float MARGIN = 1e-7f;
+    public static int VEL_ROWS = 36;
+    public static int VEL_COLS = 36;
+    public static int DEN_ROWS = 36;
+    public static int DEN_COLS = 36;
+    public static float[][][][] VELOCITY_BASIS = null;
+    public static float[][][] VELOCITY_FIELD = null;
+    public static float[] COEFS = null;
+    public static float[] EIGENVALUES = null;
+    public static float[] INV_EIGENVALUES = null;
+    public static float[] INVROOT_EIGENVALUES = null;
+    public static SparseMatrix[] CK_MATRICES = null;
+    public static int[][] BASIS_LOOKUP_TABLE = null;
+    public static int[][] BASIS_RLOOKUP_TABLE = null;
+    public static float[][] DENSITY_FIELD = null;
+    public static float[] FORCES_DW = null;
+    public static boolean FORCES_PENDING = false;
+    public static int DIM_N = 0;
+    public static int N_SQRT = 0;
 
-    public int dmx;
-    public int dmy;
+    public LEFuncs () {
+    }
 
-    public float[][][][] vel_basis;
-    public float[] coef;
-    public float[][][] vfield;
-    public float[] eigs;
-    public float[] eigs_inv;
-    public float[] eigs_inv_root;
+    public static void init ( int vel_res, int dens_res, int ckDim ) {
 
-    public SparseMatrix[] Ck;
+        VEL_ROWS = vel_res;
+        VEL_COLS = vel_res;
+        DEN_ROWS = dens_res;
+        DEN_COLS = dens_res;
+        DIM_N = ckDim;
+        N_SQRT = (int) ( ( Math.floor ( Math.sqrt ( DIM_N ) ) ) );
 
-    public float visc = 0.0f;
-    public float dt = 0.1f;
-    public float pdt_mult = 1.0f;
-    public float margin = 1e-7f;
-    public int N;
-    public int N_sqrt;
-
-    public int[][] basis_lookup_table;
-    public int[][] basis_rlookup_table;
-
-    public float[] forces_dw;
-    public boolean forces_pending;
-
-    public float[][] density_field;
-
-    LEFuncs ( int grid_res, int N, int dens_grid_res ) {
-        this.mx = grid_res;
-        this.my = grid_res;
-
-        this.dmx = dens_grid_res;
-        this.dmy = dens_grid_res;
-
-        this.N = N;
-
-        this.vfield = new float[ 2 ][ this.mx + 1 ][ this.my + 1 ];
-        this.density_field = new float[ this.dmx ][ this.dmy ];
-
-        this.coef = new float[ N ];
-        this.forces_dw = new float[ N ];
-
-        this.fill_lookup_table ();
-        this.precompute_basis_fields ();
-        this.precompute_dynamics ();
-
+        VELOCITY_FIELD = new float[ 2 ][ VEL_COLS + 1 ][ VEL_ROWS + 1 ];
+        DENSITY_FIELD = new float[ DEN_COLS ][ DEN_ROWS ];
         init_density ();
+
+        COEFS = new float[ DIM_N ];
+        FORCES_DW = new float[ DIM_N ];
+
+        fill_lookup_table ();
+        precompute_basis_fields ();
+        precompute_dynamics ();
+
     }
 
-    public void step () {
-        float[] dw = new float[ this.N ];
+    public static void init_density () {
+        int midPt = DEN_COLS / 2;
+        int qtrPt = midPt / 2;
+        for ( int i = 0; i < DEN_COLS; i++ ) {
+            for ( int j = 0; j < DEN_ROWS; j++ ) {
+                int x = ( i - midPt ) * ( i - midPt );
+                int y = ( j - midPt ) * ( j - midPt );
 
-        float prev_e = cur_energy ();
-
-        float[][] dwt = new float[ 4 ][ this.N ];
-        float[][] qn = new float[ 4 ][ this.N ];
-
-        qn[ 0 ] = this.coef;
-
-        for ( int k = 0; k < this.N; k++ ) {
-            // calculate C_k matrix vector products
-            dwt[ 0 ][ k ] = this.dot ( qn[ 0 ], this.Ck[ k ].mult ( qn[ 0 ] ) );
-            qn[ 1 ][ k ] = qn[ 0 ][ k ] + 0.5f * this.dt * dwt[ 0 ][ k ];
-        }
-
-        for ( int k = 0; k < this.N; k++ ) {
-
-            dwt[ 1 ][ k ] = this.dot ( qn[ 1 ], this.Ck[ k ].mult ( qn[ 1 ] ) );
-            qn[ 2 ][ k ] = qn[ 0 ][ k ] + 0.5f * this.dt * dwt[ 1 ][ k ];
-        }
-
-        for ( int k = 0; k < this.N; k++ ) {
-
-            dwt[ 2 ][ k ] = this.dot ( qn[ 2 ], this.Ck[ k ].mult ( qn[ 2 ] ) );
-            qn[ 3 ][ k ] = qn[ 0 ][ k ] + 0.5f * this.dt * dwt[ 2 ][ k ];
-        }
-
-        for ( int k = 0; k < this.N; k++ ) {
-
-            dwt[ 3 ][ k ] = this.dot ( qn[ 3 ], this.Ck[ k ].mult ( qn[ 3 ] ) );
-            dw[ k ] = ( dwt[ 0 ][ k ] + 2.0f * dwt[ 1 ][ k ] + 2.0f * dwt[ 2 ][ k ] + dwt[ 3 ][ k ] ) / 6.0f;
-        }
-
-        for ( int k = 0; k < this.N; k++ ) {
-            this.coef[ k ] += dw[ k ] * this.dt;
-        }
-
-        if ( prev_e > 1e-5f ) {
-            this.set_energy ( prev_e );
-        }
-
-        for ( int k = 0; k < this.N; k++ ) {
-            float tmp = - 1.0f * this.eigs[ k ] * this.dt * this.visc;
-            float decay = (float) java.lang.Math.exp ( tmp );
-            coef[ k ] *= decay;
-            coef[ k ] += this.forces_dw[ k ];
-            forces_dw[ k ] = 0;
-        }
-
-        this.expand_basis ();
-
-        if ( this.dmx > 0 ) {
-            this.advect_density ();
+                if ( x + y < qtrPt * qtrPt ) {
+                    DENSITY_FIELD[ i ][ j ] = 1.0f;
+                } else {
+                    DENSITY_FIELD[ i ][ j ] = 0.0f;
+                }
+            }
         }
     }
 
+    public static void fill_lookup_table () {
+        N_SQRT = (int) ( ( Math.floor ( Math.sqrt ( DIM_N ) ) ) );
 
-    public void precompute_basis_fields () {
-        this.vel_basis = new float[ this.N ][][][];
+        BASIS_LOOKUP_TABLE = new int[ DIM_N ][ 2 ];
+        BASIS_RLOOKUP_TABLE = new int[ N_SQRT + 1 ][ N_SQRT + 1 ];
 
-        for ( int i = 0; i < this.N; i++ ) {
-            int k1 = this.basis_lookup ( i, 0 );
-            int k2 = this.basis_lookup ( i, 1 );
+        for ( int k1 = 0; k1 <= N_SQRT; k1++ ) {
+            for ( int k2 = 0; k2 <= N_SQRT; k2++ ) {
+                BASIS_RLOOKUP_TABLE[ k1 ][ k2 ] = - 1;
+            }
+        }
 
-            this.vel_basis[ i ] = this.basis_field_2d_rect ( k1, k2, 1.0f );
+        int index = 0;
+        for ( int k1 = 0; k1 <= N_SQRT; k1++ ) {
+            for ( int k2 = 0; k2 <= N_SQRT; k2++ ) {
+                if ( k1 > N_SQRT || k1 < 1 || k2 > N_SQRT || k2 < 1 ) {
+                    continue;
+                }
+
+                BASIS_LOOKUP_TABLE[ index ][ 0 ] = k1;
+                BASIS_LOOKUP_TABLE[ index ][ 1 ] = k2;
+
+                BASIS_RLOOKUP_TABLE[ k1 ][ k2 ] = index;
+                index += 1;
+
+            }
         }
     }
 
-    public void precompute_dynamics () {
-        this.Ck = new SparseMatrix[ N ];
+    public static void precompute_basis_fields () {
+        VELOCITY_BASIS = new float[ DIM_N ][][][];
 
-        for ( int i = 0; i < N; i++ ) {
-            this.Ck[ i ] = new SparseMatrix ( N, N );
+        for ( int i = 0; i < DIM_N; i++ ) {
+            int k1 = basis_lookup ( i, 0 );
+            int k2 = basis_lookup ( i, 1 );
+
+            VELOCITY_BASIS[ i ] = basis_field_2d_rect ( k1, k2, 1.0f );
+        }
+    }
+
+    public static void precompute_dynamics () {
+        CK_MATRICES = new SparseMatrix[ DIM_N ];
+
+        for ( int i = 0; i < DIM_N; i++ ) {
+            CK_MATRICES[ i ] = new SparseMatrix ( DIM_N, DIM_N );
         }
 
-        this.eigs = new float[ N ];
-        this.eigs_inv = new float[ N ];
-        this.eigs_inv_root = new float[ N ];
+        EIGENVALUES = new float[ DIM_N ];
+        INV_EIGENVALUES = new float[ DIM_N ];
+        INVROOT_EIGENVALUES = new float[ DIM_N ];
 
-        for ( int i = 0; i < N; i++ ) {
-            int k1 = this.basis_lookup ( i, 0 );
-            int k2 = this.basis_lookup ( i, 1 );
-            this.eigs[ i ] = ( k1 * k1 + k2 * k2 );
-            this.eigs_inv[ i ] = 1.0f / ( k1 * k1 + k2 * k2 );
-            this.eigs_inv_root[ i ] = 1.0f / (float) ( java.lang.Math.sqrt ( k1 * k1 + k2 * k2 ) );
+        for ( int i = 0; i < DIM_N; i++ ) {
+            int k1 = basis_lookup ( i, 0 );
+            int k2 = basis_lookup ( i, 1 );
+
+            EIGENVALUES[ i ] = ( k1 * k1 + k2 * k2 );
+            INV_EIGENVALUES[ i ] = 1.0f / (float) ( k1 * k1 + k2 * k2 );
+            INVROOT_EIGENVALUES[ i ] = (float) ( 1.0f / Math.sqrt ( ( k1 * k1 + k2 * k2 ) ) );
         }
 
-        for ( int d1 = 0; d1 < N; d1++ ) {
-            int a1 = this.basis_lookup ( d1, 0 );
-            int a2 = this.basis_lookup ( d1, 1 );
+        for ( int d1 = 0; d1 < DIM_N; d1++ ) {
+            int a1 = basis_lookup ( d1, 0 );
+            int a2 = basis_lookup ( d1, 1 );
             float lambda_a = - ( a1 * a1 + a2 * a2 );
-            for ( int d2 = 0; d2 < N; d2++ ) {
-                int b1 = this.basis_lookup ( d2, 0 );
-                int b2 = this.basis_lookup ( d2, 1 );
+            for ( int d2 = 0; d2 < DIM_N; d2++ ) {
+                int b1 = basis_lookup ( d2, 0 );
+                int b2 = basis_lookup ( d2, 1 );
 
                 float lambda_b = - ( b1 * b1 + b2 * b2 );
                 float inv_lambda_b = - 1.0f / ( b1 * b1 + b2 * b2 );
 
-                int k1 = this.basis_rlookup ( a1, a2 );
-                int k2 = this.basis_rlookup ( b1, b2 );
+                int k1 = basis_rlookup ( a1, a2 );
+                int k2 = basis_rlookup ( b1, b2 );
 
                 int[][] antipairs = new int[ 4 ][ 2 ];
                 antipairs[ 0 ][ 0 ] = a1 - b1;
@@ -194,19 +181,60 @@ public class LEFuncs {
                     int i = antipairs[ c ][ 0 ];
                     int j = antipairs[ c ][ 1 ];
 
-                    int index = this.basis_rlookup ( i, j );
+                    int index = basis_rlookup ( i, j );
 
                     if ( index != - 1 ) {
-                        float coef = - this.coefdensity ( a1, a2, b1, b2, c, 0 ) * inv_lambda_b;
-                        this.Ck[ index ].set ( k1, k2, coef );
-                        this.Ck[ index ].set ( k2, k1, coef * - lambda_b / lambda_a );
+                        float coef = - coefdensity ( a1, a2, b1, b2, c, 0 ) * inv_lambda_b;
+                        CK_MATRICES[ index ].set ( k1, k2, coef );
+                        CK_MATRICES[ index ].set ( k2, k1, - coef * ( lambda_b / lambda_a ) );
                     }
                 }
             }
         }
     }
 
-    public float coefdensity ( int a1, int b1, int a2, int b2, int c, int tt ) {
+    public static int basis_lookup ( int index, int component ) {
+        return BASIS_LOOKUP_TABLE[ index ][ component ];
+    }
+
+    public static float[][][] basis_field_2d_rect ( int n, int m, float amp ) {
+        int a = n;
+        int b = m;
+
+        float xfact = 1.0f;
+        if ( n != 0 ) {
+            xfact = - 1.0f / ( a * a + b * b );
+        }
+        float yfact = 1.0f;
+        if ( m != 0 ) {
+            yfact = - 1.0f / ( a * a + b * b );
+        }
+
+        float[][][] vf = new float[ 2 ][ VEL_COLS + 1 ][ VEL_ROWS + 1 ];
+
+        float deltax = 3.14159f / (float) VEL_COLS;
+        float deltay = 3.14159f / (float) VEL_ROWS;
+
+        for ( int i = 0; i < VEL_COLS + 1; i++ ) {
+            for ( int j = 0; j < VEL_ROWS + 1; j++ ) {
+                float x = (float) i * deltax;
+                float y = (float) j * deltay;
+
+                vf[ 0 ][ i ][ j ] = - (float) b * amp * xfact * (float) ( ( Math.sin ( a * x ) ) * Math.cos ( b * ( y + 0.5 * deltay ) ) );
+                vf[ 1 ][ i ][ j ] = (float) a * amp * yfact * (float) ( ( Math.cos ( a * ( x + 0.5 * deltax ) ) * Math.sin ( b * y ) ) );
+            }
+        }
+        return vf;
+    }
+
+    public static int basis_rlookup ( int k1, int k2 ) {
+        if ( k1 > N_SQRT || k1 < 1 || k2 > N_SQRT || k2 < 1 ) {
+            return - 1;
+        }
+        return BASIS_RLOOKUP_TABLE[ k1 ][ k2 ];
+    }
+
+    public static float coefdensity ( int a1, int b1, int a2, int b2, int c, int tt ) {
         if ( tt == 0 ) {
             // SS x SS
             if ( c == 0 )
@@ -252,225 +280,111 @@ public class LEFuncs {
         return 0;
     }
 
-    public float[][][] basis_field_2d_rect ( int n, int m, float amp ) {
-        int a = n;
-        int b = m;
+    public static void step () {
+        float[] dw = new float[ DIM_N ];
 
-        float xfact = 1.0f;
-        if ( n != 0 ) {
-            xfact = - 1.0f / ( a * a + b * b );
+        float prev_e = cur_energy ();
+
+        float[][] dwt = new float[ 4 ][ DIM_N ];
+        float[][] qn = new float[ 4 ][ DIM_N ];
+
+        qn[ 0 ] = COEFS;
+
+        for ( int k = 0; k < DIM_N; k++ ) {
+            // calculate C_k matrix vector products
+            dwt[ 0 ][ k ] = dot ( qn[ 0 ], CK_MATRICES[ k ].mult ( qn[ 0 ] ) );
+            qn[ 1 ][ k ] = qn[ 0 ][ k ] + 0.5f * DT * dwt[ 0 ][ k ];
         }
-        float yfact = 1.0f;
-        if ( m != 0 ) {
-            yfact = - 1.0f / ( a * a + b * b );
+
+        for ( int k = 0; k < DIM_N; k++ ) {
+
+            dwt[ 1 ][ k ] = dot ( qn[ 1 ], CK_MATRICES[ k ].mult ( qn[ 1 ] ) );
+            qn[ 2 ][ k ] = qn[ 0 ][ k ] + 0.5f * DT * dwt[ 1 ][ k ];
         }
 
-        float[][][] vf = new float[ 2 ][ this.mx + 1 ][ this.my + 1 ];
+        for ( int k = 0; k < DIM_N; k++ ) {
 
-        float deltax = 3.14159f / this.mx;
-        float deltay = 3.14159f / this.my;
-
-        for ( int i = 0; i < this.mx + 1; i++ ) {
-            for ( int j = 0; j < this.my + 1; j++ ) {
-                float x = (float) i * deltax;
-                float y = (float) j * deltay;
-
-                vf[ 0 ][ i ][ j ] = - (float) b * amp * xfact * (float) ( ( java.lang.Math.sin ( a * x ) ) * java.lang.Math.cos (
-                        b * ( y + 0.5 * deltay ) ) );
-                vf[ 1 ][ i ][ j ] = (float) a * amp * yfact * (float) ( ( java.lang.Math.cos (
-                        a * ( x + 0.5 * deltax ) ) * java.lang.Math.sin ( b * y ) ) );
-            }
+            dwt[ 2 ][ k ] = dot ( qn[ 2 ], CK_MATRICES[ k ].mult ( qn[ 2 ] ) );
+            qn[ 3 ][ k ] = qn[ 0 ][ k ] + 0.5f * DT * dwt[ 2 ][ k ];
         }
-        return vf;
+
+        for ( int k = 0; k < DIM_N; k++ ) {
+
+            dwt[ 3 ][ k ] = dot ( qn[ 3 ], CK_MATRICES[ k ].mult ( qn[ 3 ] ) );
+            dw[ k ] = ( dwt[ 0 ][ k ] + 2.0f * dwt[ 1 ][ k ] + 2.0f * dwt[ 2 ][ k ] + dwt[ 3 ][ k ] ) / 6.0f;
+        }
+
+        for ( int k = 0; k < DIM_N; k++ ) {
+            COEFS[ k ] += dw[ k ] * DT;
+        }
+
+        if ( prev_e > 1e-5f ) {
+            set_energy ( prev_e );
+        }
+
+        for ( int k = 0; k < DIM_N; k++ ) {
+            float tmp = - 1.0f * EIGENVALUES[ k ] * DT * VISCOSITY;
+            float decay = (float) Math.exp ( tmp );
+            COEFS[ k ] *= decay;
+            COEFS[ k ] += FORCES_DW[ k ];
+            FORCES_DW[ k ] = 0.0f;
+        }
+
+        expand_basis ();
+
+        if ( DEN_COLS > 0 ) {
+            advect_density ();
+        }
     }
 
-    public float cur_energy () {
+    public static float cur_energy () {
         float energy = 0.0f;
-        for ( int i = 0; i < this.N; i++ ) {
-            energy += ( this.eigs_inv[ i ] * ( this.coef[ i ] * this.coef[ i ] ) );
+        for ( int i = 0; i < DIM_N; i++ ) {
+            energy += ( INV_EIGENVALUES[ i ] * COEFS[ i ] * COEFS[ i ] );
         }
         return energy;
-
     }
 
-    public void set_energy ( float desired_e ) {
-        float cur_e = this.cur_energy ();
-        float fact = (float) ( java.lang.Math.sqrt ( desired_e ) / java.lang.Math.sqrt ( cur_e ) );
+    public static float dot ( float[] a, float[] b ) {
+        float res = 0.0f;
+        for ( int i = 0; i < a.length; i++ ) {
+            res += a[ i ] * b[ i ];
+        }
+        return res;
+    }
 
-        for ( int i = 0; i < this.N; i++ ) {
-            this.coef[ i ] *= fact;
+    public static void set_energy ( float desired_e ) {
+        float cur_e = cur_energy ();
+        float fact = (float) ( Math.sqrt ( desired_e ) / Math.sqrt ( cur_e ) );
+
+        for ( int i = 0; i < DIM_N; i++ ) {
+            COEFS[ i ] *= fact;
         }
     }
 
-    public float getInterpolatedValue ( float x, float y, int index ) {
-        int i = (int) java.lang.Math.floor ( x );
-        int j = (int) java.lang.Math.floor ( y );
+    public static void expand_basis () {
+        VELOCITY_FIELD = new float[ 2 ][ VEL_COLS + 1 ][ VEL_ROWS + 1 ];
 
-        float tot = 0.0f;
-        int den = 0;
-
-        if ( i >= 0 && i <= mx && j >= 0 && j <= my ) {
-            tot += ( i + 1 - x ) * ( j + 1 - y ) * this.vfield[ index ][ i ][ j ];
-            den++;
-        }
-
-        if ( i + 1 >= 0 && i + 1 <= mx && j >= 0 && j <= my ) {
-            tot += ( x - i ) * ( j + 1 - y ) * this.vfield[ index ][ i + 1 ][ j ];
-            den++;
-        }
-
-        if ( i >= 0 && i <= mx && j + 1 >= 0 && j + 1 <= my ) {
-            tot += ( i + 1 - x ) * ( y - j ) * this.vfield[ index ][ i ][ j + 1 ];
-            den++;
-        }
-
-        if ( i + 1 >= 0 && i + 1 <= mx && j + 1 >= 0 && j + 1 <= my ) {
-            tot += ( x - i ) * ( y - j ) * this.vfield[ index ][ i + 1 ][ j + 1 ];
-            den++;
-        }
-
-        if ( den == 0 ) {
-            return 0.0f;
-        }
-
-        tot = tot / (float) den;
-
-        return tot;
-    }
-
-    public float[] vel_at_bilinear ( float xx, float yy ) {
-        float[] v = new float[ 2 ];
-        xx *= this.mx;
-        yy *= this.my;
-
-        v[ 0 ] = getInterpolatedValue ( xx, yy - 0.5f, 0 );
-        v[ 1 ] = getInterpolatedValue ( xx - 0.5f, yy, 1 );
-
-        return v;
-    }
-
-    public float[] vel_at_cubic ( float xx, float yy ) {
-        float[] v = new float[ 2 ];
-        float[] f = new float[ 4 ];
-
-        float tk;
-        xx *= this.mx;
-        yy *= this.my;
-
-        int k = 1;
-
-        int[] x = new int[ 4 ];
-        x[ k ] = clampi ( (int) java.lang.Math.floor ( xx ), 0, mx );
-        x[ k + 1 ] = clampi ( x[ k ] + 1, 0, mx );
-        x[ k + 2 ] = clampi ( x[ k ] + 2, 0, mx );
-        x[ k - 1 ] = clampi ( x[ k ] - 1, 0, mx );
-
-        int[] y = new int[ 4 ];
-        y[ k ] = clampi ( (int) java.lang.Math.floor ( yy ), 0, my );
-        y[ k + 1 ] = clampi ( y[ k ] + 1, 0, my );
-        y[ k + 2 ] = clampi ( y[ k ] + 2, 0, my );
-        y[ k - 1 ] = clampi ( y[ k ] - 1, 0, my );
-
-        f[ k - 1 ] = this.vfield[ 0 ][ x[ k - 1 ] ][ y[ k ] ];
-        f[ k ] = this.vfield[ 0 ][ x[ k ] ][ y[ k ] ];
-        f[ k + 1 ] = this.vfield[ 0 ][ x[ k + 1 ] ][ y[ k ] ];
-        f[ k + 2 ] = this.vfield[ 0 ][ x[ k + 2 ] ][ y[ k ] ];
-
-        tk = xx - x[ k ];
-
-        v[ 0 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] *
-                ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] *
-                ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] *
-                ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
-
-        f[ k - 1 ] = this.vfield[ 1 ][ x[ k ] ][ y[ k - 1 ] ];
-        f[ k ] = this.vfield[ 1 ][ x[ k ] ][ y[ k ] ];
-        f[ k + 1 ] = this.vfield[ 1 ][ x[ k ] ][ y[ k + 1 ] ];
-        f[ k + 2 ] = this.vfield[ 1 ][ x[ k ] ][ y[ k + 2 ] ];
-
-        tk = yy - y[ k ];
-
-        v[ 1 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] *
-                ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] *
-                ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] *
-                ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
-
-        return v;
-    }
-
-    public int clampi ( int f, int a, int b ) {
-        if ( f < a ) {
-            return a;
-        }
-        if ( f > b ) {
-            return b;
-        }
-        return f;
-    }
-
-    public float clampd ( float f, float a, float b ) {
-        if ( f < a ) {
-            return a;
-        }
-        if ( f > b ) {
-            return b;
-        }
-        return f;
-    }
-
-    public void init_density () {
-        int midPt = this.dmx / 2;
-        int qtrPt = midPt / 2;
-        for ( int i = 0; i < this.dmx; i++ ) {
-            for ( int j = 0; j < this.dmy; j++ ) {
-                int x = ( i - midPt ) * ( i - midPt );
-                int y = ( j - midPt ) * ( j - midPt );
-
-                if ( x + y < qtrPt * qtrPt ) {
-                    this.density_field[ i ][ j ] = 1.0f;
-                } else {
-                    this.density_field[ i ][ j ] = 0.0f;
+        for ( int k = 0; k < DIM_N; k++ ) {
+            for ( int i = 0; i < VEL_COLS + 1; i++ ) {
+                for ( int j = 0; j < VEL_ROWS + 1; j++ ) {
+                    VELOCITY_FIELD[ 0 ][ i ][ j ] += COEFS[ k ] * VELOCITY_BASIS[ k ][ 0 ][ i ][ j ];
+                    VELOCITY_FIELD[ 1 ][ i ][ j ] += COEFS[ k ] * VELOCITY_BASIS[ k ][ 1 ][ i ][ j ];
                 }
             }
         }
     }
 
-    public float density_at ( float xxx, float yyy ) {
-        float x = xxx * this.dmx;
-        float y = yyy * this.dmy;
-
-        float xx = clampd ( x - 0.5f, 0.0f, (float) ( dmx - 1 ) );
-        float yy = clampd ( y - 0.5f, 0.0f, (float) ( dmy - 1 ) );
-
-        int x1 = clampi ( (int) xx, 0, dmx - 1 );
-        int x2 = clampi ( (int) xx + 1, 0, dmx - 1 );
-
-        int y1 = clampi ( (int) yy, 0, dmy - 1 );
-        int y2 = clampi ( (int) yy + 1, 0, dmy - 1 );
-
-        float b1 = this.density_field[ x1 ][ y1 ];
-        float b2 = this.density_field[ x2 ][ y1 ] - this.density_field[ x1 ][ y1 ];
-        float b3 = this.density_field[ x1 ][ y2 ] - this.density_field[ x1 ][ y1 ];
-        float b4 = this.density_field[ x1 ][ y1 ] - this.density_field[ x2 ][ y1 ] -
-                this.density_field[ x1 ][ y2 ] + this.density_field[ x2 ][ y2 ];
-
-        float dx = xx - (float) x1;
-        float dy = yy - (float) y1;
-
-        float tot = b1 + b2 * dx + b3 * dy + b4 * dx * dy;
-        return tot;
-    }
-
-    public void advect_density () {
-        float[][] density_new = new float[ this.dmx ][ this.dmy ];
-        float pdt = this.dt * this.pdt_mult;
+    public static void advect_density () {
+        float[][] density_new = new float[ DEN_COLS ][ DEN_ROWS ];
+        float pdt = DT * PDT_MULT;
 
         boolean RK2 = false;
 
-        for ( int i = 0; i < this.dmx; i++ ) {
-            for ( int j = 0; j < this.dmy; j++ ) {
-                float x = ( (float) i + 0.5f ) / this.dmx;
-                float y = ( (float) j + 0.5f ) / this.dmy;
+        for ( int i = 0; i < DEN_COLS; i++ ) {
+            for ( int j = 0; j < DEN_ROWS; j++ ) {
+                float x = ( (float) i + 0.5f ) / DEN_COLS;
+                float y = ( (float) j + 0.5f ) / DEN_ROWS;
 
                 float nx = 0.0f;
                 float ny = 0.0f;
@@ -492,79 +406,117 @@ public class LEFuncs {
             }
         }
 
-        this.density_field = density_new;
+        DENSITY_FIELD = density_new;
     }
 
-    public int basis_lookup ( int index, int component ) {
-        return this.basis_lookup_table[ index ][ component ];
+    public static float[] vel_at_bilinear ( float xx, float yy ) {
+        float[] v = new float[ 2 ];
+        xx *= VEL_COLS;
+        yy *= VEL_ROWS;
+
+        v[ 0 ] = getInterpolatedValue ( xx, yy - 0.5f, 0 );
+        v[ 1 ] = getInterpolatedValue ( xx - 0.5f, yy, 1 );
+
+        return v;
     }
 
-    public int basis_rlookup ( int k1, int k2 ) {
-        if ( k1 > this.N_sqrt || k1 < 1 || k2 > this.N_sqrt || k2 < 1 ) {
-            return - 1;
+    public static float density_at ( float xxx, float yyy ) {
+        float x = xxx * DEN_COLS;
+        float y = yyy * DEN_ROWS;
+
+        float xx = clampd ( x - 0.5f, 0.0f, (float) ( DEN_COLS - 1 ) );
+        float yy = clampd ( y - 0.5f, 0.0f, (float) ( DEN_ROWS - 1 ) );
+
+        int x1 = clampi ( (int) xx, 0, DEN_COLS - 1 );
+        int x2 = clampi ( (int) xx + 1, 0, DEN_COLS - 1 );
+
+        int y1 = clampi ( (int) yy, 0, DEN_ROWS - 1 );
+        int y2 = clampi ( (int) yy + 1, 0, DEN_ROWS - 1 );
+
+        float b1 = DENSITY_FIELD[ x1 ][ y1 ];
+        float b2 = DENSITY_FIELD[ x2 ][ y1 ] - DENSITY_FIELD[ x1 ][ y1 ];
+        float b3 = DENSITY_FIELD[ x1 ][ y2 ] - DENSITY_FIELD[ x1 ][ y1 ];
+        float b4 = DENSITY_FIELD[ x1 ][ y1 ] - DENSITY_FIELD[ x2 ][ y1 ] -
+                DENSITY_FIELD[ x1 ][ y2 ] + DENSITY_FIELD[ x2 ][ y2 ];
+
+        float dx = xx - (float) x1;
+        float dy = yy - (float) y1;
+
+        float tot = b1 + b2 * dx + b3 * dy + b4 * dx * dy;
+        return tot;
+    }
+
+    public static float getInterpolatedValue ( float x, float y, int index ) {
+        int i = (int) Math.floor ( x );
+        int j = (int) Math.floor ( y );
+
+        float tot = 0.0f;
+        int den = 0;
+
+        if ( i >= 0 && i <= VEL_COLS && j >= 0 && j <= VEL_ROWS ) {
+            tot += ( i + 1 - x ) * ( j + 1 - y ) * VELOCITY_FIELD[ index ][ i ][ j ];
+            den++;
         }
-        return this.basis_rlookup_table[ k1 ][ k2 ];
+
+        if ( i + 1 >= 0 && i + 1 <= VEL_COLS && j >= 0 && j <= VEL_ROWS ) {
+            tot += ( x - i ) * ( j + 1 - y ) * VELOCITY_FIELD[ index ][ i + 1 ][ j ];
+            den++;
+        }
+
+        if ( i >= 0 && i <= VEL_COLS && j + 1 >= 0 && j + 1 <= VEL_ROWS ) {
+            tot += ( i + 1 - x ) * ( y - j ) * VELOCITY_FIELD[ index ][ i ][ j + 1 ];
+            den++;
+        }
+
+        if ( i + 1 >= 0 && i + 1 <= VEL_COLS && j + 1 >= 0 && j + 1 <= VEL_ROWS ) {
+            tot += ( x - i ) * ( y - j ) * VELOCITY_FIELD[ index ][ i + 1 ][ j + 1 ];
+            den++;
+        }
+
+        if ( den == 0 ) {
+            return 0.0f;
+        }
+
+        tot = tot / (float) den;
+
+        return tot;
     }
 
-    public void expand_basis () {
-        this.vfield = new float[ 2 ][ mx + 1 ][ my + 1 ];
+    public static float clampd ( float f, float a, float b ) {
+        if ( f < a ) {
+            return a;
+        }
+        if ( f > b ) {
+            return b;
+        }
+        return f;
+    }
 
-        for ( int k = 0; k < this.N; k++ ) {
-            for ( int i = 0; i < this.mx + 1; i++ ) {
-                for ( int j = 0; j < this.my + 1; j++ ) {
-                    this.vfield[ 0 ][ i ][ j ] += this.coef[ k ] * this.vel_basis[ k ][ 0 ][ i ][ j ];
-                    this.vfield[ 1 ][ i ][ j ] += this.coef[ k ] * this.vel_basis[ k ][ 1 ][ i ][ j ];
-                }
-            }
+    public static int clampi ( int f, int a, int b ) {
+        if ( f < a ) {
+            return a;
+        }
+        if ( f > b ) {
+            return b;
+        }
+        return f;
+    }
+
+    public static void stir ( float[][] force_path ) {
+        float[] dw = project_forces ( force_path );
+        for ( int i = 0; i < DIM_N; i++ ) {
+            FORCES_DW[ i ] += dw[ i ];
         }
     }
 
-    public void fill_lookup_table () {
-        this.N_sqrt = (int) java.lang.Math.floor ( java.lang.Math.sqrt ( (float) N ) );
+    public static float[] project_forces ( float[][] force_path ) {
+        float[] dw = new float[ DIM_N ];
 
-        this.basis_lookup_table = new int[ this.N ][ 2 ];
-        this.basis_rlookup_table = new int[ this.N_sqrt + 1 ][ this.N_sqrt + 1 ];
-
-        for ( int k1 = 0; k1 <= this.N_sqrt; k1++ ) {
-            for ( int k2 = 0; k2 <= this.N_sqrt; k2++ ) {
-                this.basis_rlookup_table[ k1 ][ k2 ] = - 1;
-            }
-        }
-
-        int index = 0;
-        for ( int k1 = 0; k1 <= this.N_sqrt; k1++ ) {
-            for ( int k2 = 0; k2 <= this.N_sqrt; k2++ ) {
-                if ( k1 > this.N_sqrt || k1 < 1 || k2 > this.N_sqrt || k2 < 1 ) {
-                    continue;
-                }
-
-                this.basis_lookup_table[ index ][ 0 ] = k1;
-                this.basis_lookup_table[ index ][ 1 ] = k2;
-
-                this.basis_rlookup_table[ k1 ][ k2 ] = index;
-                index += 1;
-
-            }
-        }
-    }
-
-
-    public float dot ( float[] a, float[] b ) {
-        float res = 0.0f;
-        for ( int i = 0; i < a.length; i++ ) {
-            res += a[ i ] * b[ i ];
-        }
-        return res;
-    }
-
-    public float[] project_forces ( float[][] force_path ) {
-        float[] dw = new float[ this.N ];
-
-        for ( int i = 0; i < this.N; i++ ) {
+        for ( int i = 0; i < DIM_N; i++ ) {
             float tot = 0.0f;
 
-            int a = this.basis_lookup ( i, 0 );
-            int b = this.basis_lookup ( i, 1 );
+            int a = basis_lookup ( i, 0 );
+            int b = basis_lookup ( i, 1 );
 
             float xfact = 1.0f;
             if ( a != 0 ) {
@@ -588,8 +540,8 @@ public class LEFuncs {
                 x *= 3.14159f;
                 y *= 3.14159f;
 
-                float vx = - (float) b * this.dt * xfact * (float) ( ( java.lang.Math.sin ( a * x ) * java.lang.Math.cos ( b * y ) ) );
-                float vy = (float) a * this.dt * yfact * (float) ( ( java.lang.Math.cos ( a * x ) * java.lang.Math.sin ( b * y ) ) );
+                float vx = - (float) b * DT * xfact * (float) ( ( Math.sin ( a * x ) * Math.cos ( b * y ) ) );
+                float vy = (float) a * DT * yfact * (float) ( ( Math.cos ( a * x ) * Math.sin ( b * y ) ) );
 
                 tot += ( vx * fx + vy * fy );
             }
@@ -598,11 +550,52 @@ public class LEFuncs {
         return dw;
     }
 
-    public void stir ( float[][] force_path ) {
-        float[] dw = this.project_forces ( force_path );
-        for ( int i = 0; i < this.N; i++ ) {
-            this.forces_dw[ i ] += dw[ i ];
-        }
-    }
+    public static float[] vel_at_cubic ( float xx, float yy ) {
+        float[] v = new float[ 2 ];
+        float[] f = new float[ 4 ];
 
+        float tk;
+        xx *= VEL_COLS;
+        yy *= VEL_ROWS;
+
+        int k = 1;
+
+        int[] x = new int[ 4 ];
+        x[ k ] = clampi ( (int) Math.floor ( xx ), 0, VEL_COLS );
+        x[ k + 1 ] = clampi ( x[ k ] + 1, 0, VEL_COLS );
+        x[ k + 2 ] = clampi ( x[ k ] + 2, 0, VEL_COLS );
+        x[ k - 1 ] = clampi ( x[ k ] - 1, 0, VEL_COLS );
+
+        int[] y = new int[ 4 ];
+        y[ k ] = clampi ( (int) Math.floor ( yy ), 0, VEL_ROWS );
+        y[ k + 1 ] = clampi ( y[ k ] + 1, 0, VEL_ROWS );
+        y[ k + 2 ] = clampi ( y[ k ] + 2, 0, VEL_ROWS );
+        y[ k - 1 ] = clampi ( y[ k ] - 1, 0, VEL_ROWS );
+
+        f[ k - 1 ] = VELOCITY_FIELD[ 0 ][ x[ k - 1 ] ][ y[ k ] ];
+        f[ k ] = VELOCITY_FIELD[ 0 ][ x[ k ] ][ y[ k ] ];
+        f[ k + 1 ] = VELOCITY_FIELD[ 0 ][ x[ k + 1 ] ][ y[ k ] ];
+        f[ k + 2 ] = VELOCITY_FIELD[ 0 ][ x[ k + 2 ] ][ y[ k ] ];
+
+        tk = xx - x[ k ];
+
+        v[ 0 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] *
+                ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] *
+                ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] *
+                ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
+
+        f[ k - 1 ] = VELOCITY_FIELD[ 1 ][ x[ k ] ][ y[ k - 1 ] ];
+        f[ k ] = VELOCITY_FIELD[ 1 ][ x[ k ] ][ y[ k ] ];
+        f[ k + 1 ] = VELOCITY_FIELD[ 1 ][ x[ k ] ][ y[ k + 1 ] ];
+        f[ k + 2 ] = VELOCITY_FIELD[ 1 ][ x[ k ] ][ y[ k + 2 ] ];
+
+        tk = yy - y[ k ];
+
+        v[ 1 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] *
+                ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] *
+                ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] *
+                ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
+
+        return v;
+    }
 }
