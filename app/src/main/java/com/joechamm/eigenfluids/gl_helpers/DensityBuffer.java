@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.joechamm.eigenfluids;
+package com.joechamm.eigenfluids.gl_helpers;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -30,62 +30,36 @@ import java.nio.FloatBuffer;
 
 import android.opengl.GLES20;
 
-public class DensityBuffer {
+public class DensityBuffer implements BufferInterface {
 
-    private final String vertexShaderCode =
-            "attribute vec4 aPos;\n" +
-                    "attribute vec2 aTex;\n" +
-                    "varying vec2 vTex;\n" +
-                    "uniform mat4 uMVP;\n" +
-                    "void main() {\n" +
-                    "   vTex = aTex;\n" +
-                    "	gl_Position = uMVP * aPos;\n" +
-                    "}";
-
-    private final String fragmentShaderCode =
-            "precision mediump float;\n" +
-                    "varying vec2 vTex;\n" +
-                    "uniform sampler2D uDensity;\n" +
-                    "uniform vec4 uColor;\n" +
-                    "void main() {\n" +
-                    "   float d = texture2D(uDensity, vTex).r;\n" +
-                    "	vec3 color = uColor.rgb * d;\n" +
-                    "	gl_FragColor = vec4(color, 1.0);\n" +
-                    "}\n";
-
-    private final float densityColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
-
-    private final float squarePos[] = {
-            0.0f, 0.0f, 0.0f,
-            1.0f, 0.0f, 0.0f,
-            1.0f, 1.0f, 0.0f,
-            0.0f, 1.0f, 0.0f,
-    };
-
-    private final float squareTex[] = {
-            0.0f, 0.0f,
-            1.0f, 0.0f,
-            1.0f, 1.0f,
-            0.0f, 1.0f
-    };
-
-    private final ByteBuffer mDensBuffer;
-
-    private final FloatBuffer mPosBuffer;
-    private final FloatBuffer mTexBuffer;
-    private final int mProgram;
-    private int m_aPos;
-    private int m_aTex;
-    private int m_uCol;
-    private int m_uDens;
-    private int m_uMVP;
-    private int[] m_texDens = new int[ 1 ];
-
-    public byte[] mDensArray;
-    public int mNumRows;
-    public int mNumCols;
+    public int[] mVBOS;
+    public static int densRows = 0;
+    public static int densCols = 0;
+    public static int[] texDens = new int[ 1 ];
 
     public DensityBuffer () {
+
+        BufferInterface.mVbos = new int[ 1 ];
+        mVbos = new int[ 2 ];
+
+    }
+
+    /* (non-Javadoc)
+     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#render(float[])
+     */
+    @Override
+    public void render ( float[] transform ) {
+
+    }
+
+    /* (non-Javadoc)
+     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#initializeBuffers()
+     */
+
+    @Override
+    public boolean initializeBuffers () {
+        // TODO Auto-generated method stub
+
         int vs, fs;
         float x, y, dx, dy;
 
@@ -103,13 +77,17 @@ public class DensityBuffer {
         mTexBuffer.put ( squareTex );
         mTexBuffer.position ( 0 );
 
-        vs = EigenFluidsRenderer.loadShader ( GLES20.GL_VERTEX_SHADER, vertexShaderCode );
-        fs = EigenFluidsRenderer.loadShader ( GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode );
+        vs = EigenFluidsRenderer.loadShader ( GLES20.GL_VERTEX_SHADER,
+                                              vertexShaderCode );
+        fs = EigenFluidsRenderer.loadShader ( GLES20.GL_FRAGMENT_SHADER,
+                                              fragmentShaderCode );
 
         mProgram = GLES20.glCreateProgram ();
         GLES20.glAttachShader ( mProgram, vs );
         GLES20.glAttachShader ( mProgram, fs );
         GLES20.glLinkProgram ( mProgram );
+
+        EigenFluidsRenderer.checkGLError ( "density program creation" );
 
         m_aPos = GLES20.glGetAttribLocation ( mProgram, "aPos" );
         m_aTex = GLES20.glGetAttribLocation ( mProgram, "aTex" );
@@ -117,8 +95,10 @@ public class DensityBuffer {
         m_uDens = GLES20.glGetUniformLocation ( mProgram, "uDensity" );
         m_uCol = GLES20.glGetUniformLocation ( mProgram, "uColor" );
 
-        mNumCols = npt ( LEFuncs.DEN_COLS );
-        mNumRows = npt ( LEFuncs.DEN_ROWS );
+        EigenFluidsRenderer.checkGLError ( "density program variables" );
+
+//		mNumCols = npt(LEFuncs.DEN_COLS);
+//		mNumRows = npt(LEFuncs.DEN_ROWS);
 
         mDensArray = new byte[ mNumCols * mNumRows ];
 
@@ -141,31 +121,51 @@ public class DensityBuffer {
         mDensBuffer.position ( 0 );
 
         initTextures ();
+
+
+        return true;
     }
+
+    /* (non-Javadoc)
+     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#updateBuffers()
+     */
+    @Override
+    public void updateBuffers () {
+        // TODO Auto-generated method stub
+
+    }
+
 
     public void initTextures () {
 
         GLES20.glGenTextures ( 1, m_texDens, 0 );
 
+        EigenFluidsRenderer.checkGLError ( "density gen textures" );
+
         GLES20.glBindTexture ( GLES20.GL_TEXTURE_2D, m_texDens[ 0 ] );
 
-        GLES20.glTexParameterf ( GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST );
-        GLES20.glTexParameterf ( GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR );
-        GLES20.glTexParameterf ( GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE );
-        GLES20.glTexParameterf ( GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE );
+        EigenFluidsRenderer.checkGLError ( "density bind textures" );
 
-        GLES20.glTexImage2D ( GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE, mNumCols, mNumRows, 0,
-                              GLES20.GL_LUMINANCE, GLES20.GL_BYTE, mDensBuffer );
+        GLES20.glTexParameterf ( GLES20.GL_TEXTURE_2D,
+                                 GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST );
+        GLES20.glTexParameterf ( GLES20.GL_TEXTURE_2D,
+                                 GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR );
+        GLES20.glTexParameterf ( GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S,
+                                 GLES20.GL_CLAMP_TO_EDGE );
+        GLES20.glTexParameterf ( GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T,
+                                 GLES20.GL_CLAMP_TO_EDGE );
+
+        EigenFluidsRenderer.checkGLError ( "density texture parameters" );
+
+        GLES20.glTexImage2D ( GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE,
+                              mNumCols, mNumRows, 0, GLES20.GL_LUMINANCE,
+                              GLES20.GL_UNSIGNED_BYTE, mDensBuffer );
+
+        EigenFluidsRenderer.checkGLError ( "density tex image2d" );
 
         GLES20.glBindTexture ( GLES20.GL_TEXTURE_2D, 0 );
-    }
 
-    public int npt ( int n ) {
-        int p = 1;
-        while ( p < n ) {
-            p <<= 1;
-        }
-        return p;
+        EigenFluidsRenderer.checkGLError ( "density init textures" );
     }
 
 
@@ -181,10 +181,12 @@ public class DensityBuffer {
         GLES20.glUniform1i ( m_uDens, 0 );
 
         GLES20.glEnableVertexAttribArray ( m_aPos );
-        GLES20.glVertexAttribPointer ( m_aPos, 3, GLES20.GL_FLOAT, false, 0, mPosBuffer );
+        GLES20.glVertexAttribPointer ( m_aPos, 3, GLES20.GL_FLOAT, false, 0,
+                                       mPosBuffer );
 
         GLES20.glEnableVertexAttribArray ( m_aTex );
-        GLES20.glVertexAttribPointer ( m_aTex, 2, GLES20.GL_FLOAT, false, 0, mTexBuffer );
+        GLES20.glVertexAttribPointer ( m_aTex, 2, GLES20.GL_FLOAT, false, 0,
+                                       mTexBuffer );
 
         GLES20.glDrawArrays ( GLES20.GL_TRIANGLE_STRIP, 0, 4 );
 
@@ -196,8 +198,7 @@ public class DensityBuffer {
         GLES20.glBindTexture ( GLES20.GL_TEXTURE_2D, 0 );
     }
 
-
-    public void updateBuffers () {
+    public void update () {
         float x, y, dx, dy;
         dx = 1.0f / (float) ( mNumCols - 1 );
         dy = 1.0f / (float) ( mNumRows - 1 );
@@ -216,7 +217,9 @@ public class DensityBuffer {
         mDensBuffer.position ( 0 );
 
         GLES20.glBindTexture ( GLES20.GL_TEXTURE_2D, m_texDens[ 0 ] );
-        GLES20.glTexSubImage2D ( GLES20.GL_TEXTURE_2D, 0, 0, 0, mNumCols, mNumRows, GLES20.GL_LUMINANCE, GLES20.GL_BYTE, mDensBuffer );
+        GLES20.glTexSubImage2D ( GLES20.GL_TEXTURE_2D, 0, 0, 0, mNumCols,
+                                 mNumRows, GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE,
+                                 mDensBuffer );
         GLES20.glBindTexture ( GLES20.GL_TEXTURE_2D, 0 );
     }
 

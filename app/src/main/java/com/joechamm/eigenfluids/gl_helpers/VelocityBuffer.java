@@ -22,29 +22,24 @@
  * SOFTWARE.
  */
 
-package com.joechamm.eigenfluids;
+package com.joechamm.eigenfluids.gl_helpers;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
+import com.joechamm.eigenfluids.EigenFluidsRenderer;
+import com.joechamm.eigenfluids.utils.LEFuncs;
+
 import android.opengl.GLES20;
 
-public class VelocityBuffer {
+public class VelocityBuffer implements BufferInterface {
 
-    private final String vertexShaderCode =
-            "attribute vec4 aPos;\n" +
-                    "uniform mat4 uMVP;\n" +
-                    "void main() {\n" +
-                    "	gl_Position = uMVP * aPos;\n" +
-                    "}";
+    public int[] mVBOS;
 
-    private final String fragmentShaderCode =
-            "precision mediump float;\n" +
-                    "uniform vec4 uColor;\n" +
-                    "void main() {\n" +
-                    "	gl_FragColor = uColor;\n" +
-                    "}\n";
+    private final float velocityBufferColor[] = {
+            1.0f, 0.0f, 0.0f, 1.0f
+    };
 
     private final float velocityColor[] = { 1.0f, 0.0f, 0.0f, 1.0f };
 
@@ -148,6 +143,24 @@ public class VelocityBuffer {
 
         mPosBuffer.put ( mPosArray );
         mPosBuffer.position ( 0 );
+    }
+
+    /* (non-Javadoc)
+     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#render(float[])
+     */
+    @Override
+    public void render ( float[] transform ) {
+        // TODO Auto-generated method stub
+
+    }
+
+    /* (non-Javadoc)
+     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#initializeBuffers()
+     */
+    @Override
+    public boolean initializeBuffers () {
+        // TODO Auto-generated method stub
+        return false;
     }
 
 }

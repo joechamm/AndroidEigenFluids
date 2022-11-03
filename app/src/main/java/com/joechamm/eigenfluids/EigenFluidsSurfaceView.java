@@ -27,7 +27,6 @@ package com.joechamm.eigenfluids;
 import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.view.MotionEvent;
-
 public class EigenFluidsSurfaceView extends GLSurfaceView {
 
     /**

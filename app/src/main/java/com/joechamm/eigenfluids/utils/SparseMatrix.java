@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.joechamm.eigenfluids;
+package com.joechamm.eigenfluids.utils;
 
 public class SparseMatrix {
 

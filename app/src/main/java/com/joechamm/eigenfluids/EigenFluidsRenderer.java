@@ -30,6 +30,10 @@ import java.util.Iterator;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
+import com.joechamm.eigenfluids.gl_helpers.DensityBuffer;
+import com.joechamm.eigenfluids.gl_helpers.VelocityBuffer;
+import com.joechamm.eigenfluids.utils.LEFuncs;
+
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
@@ -38,7 +42,7 @@ import android.view.MotionEvent;
 
 public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
-    private static final LEFuncs lapEFuncs = new LEFuncs ();
+//	private static final LEFuncs lapEFuncs = new LEFuncs();
 
     private static final String TAG = "EigenFluidsRenderer";
     private final float[] mMVPMatrix = new float[ 16 ];
@@ -49,11 +53,11 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
     private static final int DEN_RESOLUTION = 36;
     private static final int DIMENSION = 36;
 
-    public static final boolean RENDER_VELOCITY = false;
-    public static final boolean RENDER_DENSITY = false;
+    public static final boolean RENDER_VELOCITY = true;
+    public static final boolean RENDER_DENSITY = true;
 
     public static int FORCE_MODE = 2;
-    public static int DENSITY_MODE = 0;
+    public static int DENSITY_MODE = 1;
     public static int VELOCITY_MODE = 1;
 
     public static boolean IS_PRESSED = false;
@@ -80,11 +84,23 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
         LEFuncs.init ( VEL_RESOLUTION, DEN_RESOLUTION, DIMENSION );
         LEFuncs.expand_basis ();
 
+        checkGLError ( "LEFuncs.init(VEL_RESOLUTION, DEN_RESOLUTION, DIMENSION" );
+
         velocityBuffer = new VelocityBuffer ();
+
+        checkGLError ( "velocit creation" );
+
         densityBuffer = new DensityBuffer ();
 
+        checkGLError ( "density creation" );
+
         velocityBuffer.updateBuffers ();
+
+        checkGLError ( "velocity creation" );
+
         densityBuffer.updateBuffers ();
+
+        checkGLError ( "density buffer update" );
     }
 
     @Override
@@ -102,6 +118,7 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
         GLES20.glViewport ( 0, 0, WIN_WIDTH, WIN_HEIGHT );
 
+        checkGLError ( "onsurfaceChanged" );
     }
 
     @Override
@@ -113,11 +130,15 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
         if ( RENDER_DENSITY ) {
             densityBuffer.updateBuffers ();
             densityBuffer.draw ( mMVPMatrix );
+
+            checkGLError ( "render density" );
         }
 
         if ( RENDER_VELOCITY ) {
             velocityBuffer.updateBuffers ();
             velocityBuffer.draw ( mMVPMatrix );
+
+            checkGLError ( "render velocity" );
         }
 
 
@@ -128,6 +149,8 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
         GLES20.glShaderSource ( shader, shaderCode );
         GLES20.glCompileShader ( shader );
+
+        checkGLError ( "create shader" );
 
         return shader;
     }
@@ -207,6 +230,15 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
                     }
                 }
             }
+
+            float[][] force_path = new float[ 2 ][ 4 ];
+            force_path[ 0 ][ 0 ] = 0.25f;
+            force_path[ 0 ][ 1 ] = 0.35f;
+            force_path[ 0 ][ 2 ] = - 0.015f * LEFuncs.FORCE_MAG;
+            force_path[ 0 ][ 3 ] = 0.02f * LEFuncs.FORCE_MAG;
+
+            LEFuncs.stir ( force_path );
+
         } else if ( FORCE_MODE == 1 ) {
             DRAG_PATH_X.add ( Float.valueOf ( PRESS_X ) );
             DRAG_PATH_Y.add ( Float.valueOf ( PRESS_Y ) );

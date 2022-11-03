@@ -22,35 +22,13 @@
  * SOFTWARE.
  */
 
-package com.joechamm.eigenfluids;
+package com.joechamm.eigenfluids.gl_helpers;
 
-import android.app.Activity;
-import android.opengl.GLSurfaceView;
-import android.os.Bundle;
+public interface BufferInterface {
 
-public class EigenFluidsActivity extends Activity {
+    public void render ( float[] transform );
 
-    private GLSurfaceView mGLView;
+    public boolean initializeBuffers ();
 
-    @Override
-    public void onCreate ( Bundle savedInstanceState ) {
-        super.onCreate ( savedInstanceState );
-
-        mGLView = new EigenFluidsSurfaceView ( this );
-        setContentView ( mGLView );
-    }
-
-    @Override
-    protected void onPause () {
-        super.onPause ();
-
-        mGLView.onPause ();
-    }
-
-    @Override
-    protected void onResume () {
-        super.onResume ();
-
-        mGLView.onResume ();
-    }
+    public void updateBuffers ();
 }

@@ -22,7 +22,9 @@
  * SOFTWARE.
  */
 
-package com.joechamm.eigenfluids;
+package com.joechamm.eigenfluids.utils;
+
+import com.joechamm.eigenfluids.utils.SparseMatrix;
 
 public class LEFuncs {
 
