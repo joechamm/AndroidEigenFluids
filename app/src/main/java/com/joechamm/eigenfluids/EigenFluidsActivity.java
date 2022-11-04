@@ -53,4 +53,5 @@ public class EigenFluidsActivity extends Activity {
 
         mGLView.onResume ();
     }
+
 }

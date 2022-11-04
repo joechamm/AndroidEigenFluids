@@ -27,12 +27,16 @@ package com.joechamm.eigenfluids;
 import android.content.Context;
 import android.opengl.GLSurfaceView;
 import android.view.MotionEvent;
+
 public class EigenFluidsSurfaceView extends GLSurfaceView {
 
     /**
      * @param context
      */
 
+    /**
+     *
+     */
     private final EigenFluidsRenderer mRenderer;
 
     public EigenFluidsSurfaceView ( Context context ) {
@@ -43,44 +47,33 @@ public class EigenFluidsSurfaceView extends GLSurfaceView {
 
         mRenderer = new EigenFluidsRenderer ();
 
-        setRenderer ( mRenderer );
+        this.setRenderer ( mRenderer );
 
-        //	setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
+        // setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
     }
 
-//	private final float TOUCH_SCALE_FACTOR = 180.0f / 320.0f;
-//	private float mPreviousX;
-//	private float mPreviousY;
+    // private final float TOUCH_SCALE_FACTOR = 180.0f / 320.0f;
+    // private float mPreviousX;
+    // private float mPreviousY;
 
     @Override
     public boolean onTouchEvent ( MotionEvent e ) {
 
         mRenderer.handleTouchEvent ( e );
-        requestRender ();
+        // requestRender();
 
-	/*	float x = e.getX();
-		float y = e.getY();
-
-		switch(e.getAction()) {
-		case MotionEvent.ACTION_MOVE:
-			float dx = x - mPreviousX;
-			float dy = y - mPreviousY;
-
-			if(y > getHeight() / 2) {
-				dx = - dx;
-			}
-
-			if(x < getWidth() / 2) {
-				dy = - dy;
-			}
-			break;
-		case MotionEvent.ACTION_MOVE:
-			break;
-		case MotionEvent.ACTION_MOVE:
-			break;
-		case MotionEvent.ACTION_MOVE:
-			break;
-		}*/
+        /*
+         * float x = e.getX(); float y = e.getY();
+         *
+         * switch(e.getAction()) { case MotionEvent.ACTION_MOVE: float dx = x -
+         * mPreviousX; float dy = y - mPreviousY;
+         *
+         * if(y > getHeight() / 2) { dx = - dx; }
+         *
+         * if(x < getWidth() / 2) { dy = - dy; } break; case
+         * MotionEvent.ACTION_MOVE: break; case MotionEvent.ACTION_MOVE: break;
+         * case MotionEvent.ACTION_MOVE: break; }
+         */
 
         return true;
     }

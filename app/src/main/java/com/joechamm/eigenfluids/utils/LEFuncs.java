@@ -24,8 +24,6 @@
 
 package com.joechamm.eigenfluids.utils;
 
-import com.joechamm.eigenfluids.utils.SparseMatrix;
-
 public class LEFuncs {
 
     public static final float VISCOSITY = 0.005f;
@@ -151,7 +149,7 @@ public class LEFuncs {
             int k2 = basis_lookup ( i, 1 );
 
             EIGENVALUES[ i ] = ( k1 * k1 + k2 * k2 );
-            INV_EIGENVALUES[ i ] = 1.0f / (float) ( k1 * k1 + k2 * k2 );
+            INV_EIGENVALUES[ i ] = 1.0f / ( k1 * k1 + k2 * k2 );
             INVROOT_EIGENVALUES[ i ] = (float) ( 1.0f / Math.sqrt ( ( k1 * k1 + k2 * k2 ) ) );
         }
 
@@ -214,16 +212,16 @@ public class LEFuncs {
 
         float[][][] vf = new float[ 2 ][ VEL_COLS + 1 ][ VEL_ROWS + 1 ];
 
-        float deltax = 3.14159f / (float) VEL_COLS;
-        float deltay = 3.14159f / (float) VEL_ROWS;
+        float deltax = 3.14159f / VEL_COLS;
+        float deltay = 3.14159f / VEL_ROWS;
 
         for ( int i = 0; i < VEL_COLS + 1; i++ ) {
             for ( int j = 0; j < VEL_ROWS + 1; j++ ) {
-                float x = (float) i * deltax;
-                float y = (float) j * deltay;
+                float x = i * deltax;
+                float y = j * deltay;
 
                 vf[ 0 ][ i ][ j ] = - (float) b * amp * xfact * (float) ( ( Math.sin ( a * x ) ) * Math.cos ( b * ( y + 0.5 * deltay ) ) );
-                vf[ 1 ][ i ][ j ] = (float) a * amp * yfact * (float) ( ( Math.cos ( a * ( x + 0.5 * deltax ) ) * Math.sin ( b * y ) ) );
+                vf[ 1 ][ i ][ j ] = a * amp * yfact * (float) ( ( Math.cos ( a * ( x + 0.5 * deltax ) ) * Math.sin ( b * y ) ) );
             }
         }
         return vf;
@@ -236,47 +234,33 @@ public class LEFuncs {
         return BASIS_RLOOKUP_TABLE[ k1 ][ k2 ];
     }
 
-    public static float coefdensity ( int a1, int b1, int a2, int b2, int c, int tt ) {
+    public static float coefdensity (
+            int a1, int b1, int a2, int b2, int c, int tt
+    ) {
         if ( tt == 0 ) {
             // SS x SS
-            if ( c == 0 )
-                return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
-            if ( c == 1 )
-                return 0.25f * ( a1 * b2 + a2 * b1 ); // -+
-            if ( c == 2 )
-                return 0.25f * - ( a1 * b2 + a2 * b1 ); // +-
-            if ( c == 3 )
-                return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
+            if ( c == 0 ) return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
+            if ( c == 1 ) return 0.25f * ( a1 * b2 + a2 * b1 ); // -+
+            if ( c == 2 ) return 0.25f * - ( a1 * b2 + a2 * b1 ); // +-
+            if ( c == 3 ) return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
         } else if ( tt == 1 ) {
             // SC x SS
-            if ( c == 0 )
-                return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
-            if ( c == 1 )
-                return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
-            if ( c == 2 )
-                return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
-            if ( c == 3 )
-                return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
+            if ( c == 0 ) return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
+            if ( c == 1 ) return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
+            if ( c == 2 ) return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
+            if ( c == 3 ) return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
         } else if ( tt == 2 ) {
             // CS x SS
-            if ( c == 0 )
-                return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
-            if ( c == 1 )
-                return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
-            if ( c == 2 )
-                return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
-            if ( c == 3 )
-                return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
+            if ( c == 0 ) return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
+            if ( c == 1 ) return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
+            if ( c == 2 ) return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
+            if ( c == 3 ) return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
         } else if ( tt == 3 ) {
             // CS x SS
-            if ( c == 0 )
-                return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
-            if ( c == 1 )
-                return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
-            if ( c == 2 )
-                return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
-            if ( c == 3 )
-                return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
+            if ( c == 0 ) return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
+            if ( c == 1 ) return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
+            if ( c == 2 ) return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
+            if ( c == 3 ) return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
         }
 
         return 0;
@@ -385,8 +369,8 @@ public class LEFuncs {
 
         for ( int i = 0; i < DEN_COLS; i++ ) {
             for ( int j = 0; j < DEN_ROWS; j++ ) {
-                float x = ( (float) i + 0.5f ) / DEN_COLS;
-                float y = ( (float) j + 0.5f ) / DEN_ROWS;
+                float x = ( i + 0.5f ) / DEN_COLS;
+                float y = ( j + 0.5f ) / DEN_ROWS;
 
                 float nx = 0.0f;
                 float ny = 0.0f;
@@ -426,8 +410,8 @@ public class LEFuncs {
         float x = xxx * DEN_COLS;
         float y = yyy * DEN_ROWS;
 
-        float xx = clampd ( x - 0.5f, 0.0f, (float) ( DEN_COLS - 1 ) );
-        float yy = clampd ( y - 0.5f, 0.0f, (float) ( DEN_ROWS - 1 ) );
+        float xx = clampd ( x - 0.5f, 0.0f, DEN_COLS - 1 );
+        float yy = clampd ( y - 0.5f, 0.0f, DEN_ROWS - 1 );
 
         int x1 = clampi ( (int) xx, 0, DEN_COLS - 1 );
         int x2 = clampi ( (int) xx + 1, 0, DEN_COLS - 1 );
@@ -438,11 +422,10 @@ public class LEFuncs {
         float b1 = DENSITY_FIELD[ x1 ][ y1 ];
         float b2 = DENSITY_FIELD[ x2 ][ y1 ] - DENSITY_FIELD[ x1 ][ y1 ];
         float b3 = DENSITY_FIELD[ x1 ][ y2 ] - DENSITY_FIELD[ x1 ][ y1 ];
-        float b4 = DENSITY_FIELD[ x1 ][ y1 ] - DENSITY_FIELD[ x2 ][ y1 ] -
-                DENSITY_FIELD[ x1 ][ y2 ] + DENSITY_FIELD[ x2 ][ y2 ];
+        float b4 = DENSITY_FIELD[ x1 ][ y1 ] - DENSITY_FIELD[ x2 ][ y1 ] - DENSITY_FIELD[ x1 ][ y2 ] + DENSITY_FIELD[ x2 ][ y2 ];
 
-        float dx = xx - (float) x1;
-        float dy = yy - (float) y1;
+        float dx = xx - x1;
+        float dy = yy - y1;
 
         float tot = b1 + b2 * dx + b3 * dy + b4 * dx * dy;
         return tot;
@@ -479,7 +462,7 @@ public class LEFuncs {
             return 0.0f;
         }
 
-        tot = tot / (float) den;
+        tot = tot / den;
 
         return tot;
     }
@@ -543,7 +526,7 @@ public class LEFuncs {
                 y *= 3.14159f;
 
                 float vx = - (float) b * DT * xfact * (float) ( ( Math.sin ( a * x ) * Math.cos ( b * y ) ) );
-                float vy = (float) a * DT * yfact * (float) ( ( Math.cos ( a * x ) * Math.sin ( b * y ) ) );
+                float vy = a * DT * yfact * (float) ( ( Math.cos ( a * x ) * Math.sin ( b * y ) ) );
 
                 tot += ( vx * fx + vy * fy );
             }
@@ -581,10 +564,7 @@ public class LEFuncs {
 
         tk = xx - x[ k ];
 
-        v[ 0 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] *
-                ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] *
-                ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] *
-                ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
+        v[ 0 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] * ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] * ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] * ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
 
         f[ k - 1 ] = VELOCITY_FIELD[ 1 ][ x[ k ] ][ y[ k - 1 ] ];
         f[ k ] = VELOCITY_FIELD[ 1 ][ x[ k ] ][ y[ k ] ];
@@ -593,10 +573,7 @@ public class LEFuncs {
 
         tk = yy - y[ k ];
 
-        v[ 1 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] *
-                ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] *
-                ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] *
-                ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
+        v[ 1 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] * ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] * ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] * ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
 
         return v;
     }

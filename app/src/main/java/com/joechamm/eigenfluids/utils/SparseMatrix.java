@@ -40,8 +40,9 @@ public class SparseMatrix {
         this.nzCounters = new int[ rowCount ];
     }
 
-
-    private static int binarySearch ( int[] array, int startIdx, int endIdx, int value ) {
+    private static int binarySearch (
+            int[] array, int startIdx, int endIdx, int value
+    ) {
         if ( value < array[ startIdx ] ) {
             return ( - startIdx - 1 );
         }
@@ -197,7 +198,6 @@ public class SparseMatrix {
 
     }
 
-
     public void addEmptyColumns ( int columns ) {
         this.colCount += columns;
     }
@@ -227,7 +227,6 @@ public class SparseMatrix {
         return result;
     }
 
-
     public float getSum ( int row ) {
         float sum = 0.0f;
         // go over all non-zero column of this row
@@ -242,7 +241,6 @@ public class SparseMatrix {
 
         return sum;
     }
-
 
     public float getSum ( int row, boolean[] toConsider ) {
         float sum = 0.0f;

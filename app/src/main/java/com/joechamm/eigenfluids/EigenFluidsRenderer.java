@@ -42,9 +42,9 @@ import android.view.MotionEvent;
 
 public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
-//	private static final LEFuncs lapEFuncs = new LEFuncs();
+    // private static final LEFuncs lapEFuncs = new LEFuncs();
 
-    private static final String TAG = "EigenFluidsRenderer";
+    private static final String TAG = "eigenfluids:renderer";
     private final float[] mMVPMatrix = new float[ 16 ];
     private final float[] mProjectionMatrix = new float[ 16 ];
     private final float[] mModelMatrix = new float[ 16 ];
@@ -86,13 +86,20 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
         checkGLError ( "LEFuncs.init(VEL_RESOLUTION, DEN_RESOLUTION, DIMENSION" );
 
+        com.joechamm.eigenfluids.gl_helpers.SharedResources.initShaderPrograms ();
+
         velocityBuffer = new VelocityBuffer ();
 
         checkGLError ( "velocit creation" );
 
+        velocityBuffer.initializeBuffers ();
+
         densityBuffer = new DensityBuffer ();
 
         checkGLError ( "density creation" );
+
+        densityBuffer.initializeBuffers ();
+        densityBuffer.initTextures ();
 
         velocityBuffer.updateBuffers ();
 
@@ -129,18 +136,17 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
         if ( RENDER_DENSITY ) {
             densityBuffer.updateBuffers ();
-            densityBuffer.draw ( mMVPMatrix );
+            densityBuffer.render ( mMVPMatrix );
 
             checkGLError ( "render density" );
         }
 
         if ( RENDER_VELOCITY ) {
             velocityBuffer.updateBuffers ();
-            velocityBuffer.draw ( mMVPMatrix );
+            velocityBuffer.render ( mMVPMatrix );
 
             checkGLError ( "render velocity" );
         }
-
 
     }
 
@@ -165,13 +171,13 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
     public void renderVelocity ( GL10 gl ) {
         if ( velocityBuffer != null ) {
-            velocityBuffer.draw ( mMVPMatrix );
+            velocityBuffer.render ( mMVPMatrix );
         }
     }
 
     public void renderDensity ( GL10 gl ) {
         if ( densityBuffer != null ) {
-            densityBuffer.draw ( mMVPMatrix );
+            densityBuffer.render ( mMVPMatrix );
         }
     }
 
@@ -204,8 +210,8 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
             DRAG_PATH_X.add ( Float.valueOf ( PRESS_X ) );
             DRAG_PATH_Y.add ( Float.valueOf ( PRESS_Y ) );
         } else if ( FORCE_MODE == 2 ) {
-            POS_1[ 0 ] = evt.getX () / (float) WIN_WIDTH;
-            POS_1[ 1 ] = evt.getY () / (float) WIN_HEIGHT;
+            POS_1[ 0 ] = evt.getX () / WIN_WIDTH;
+            POS_1[ 1 ] = evt.getY () / WIN_HEIGHT;
 
         }
 
@@ -220,10 +226,11 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
         PRESS_Y = evt.getY ();
 
         if ( DENSITY_MODE == 1 ) {
-            int i = (int) ( ( PRESS_X * (float) DEN_RESOLUTION ) / (float) WIN_WIDTH );
-            int j = (int) ( ( PRESS_Y * (float) DEN_RESOLUTION ) / (float) WIN_HEIGHT );
+            int i = (int) ( ( PRESS_X * DEN_RESOLUTION ) / WIN_WIDTH );
+            int j = (int) ( ( PRESS_Y * DEN_RESOLUTION ) / WIN_HEIGHT );
 
-            if ( i >= 2 && i < DEN_RESOLUTION - 2 && j >= 2 && j < DEN_RESOLUTION - 2 ) {
+            if ( i >= 2 && i < DEN_RESOLUTION - 2 && j >= 2
+                    && j < DEN_RESOLUTION - 2 ) {
                 for ( int i0 = i - 2; i0 < i + 2; ++ i0 ) {
                     for ( int j0 = j - 2; j0 < j + 2; ++ j0 ) {
                         LEFuncs.DENSITY_FIELD[ i0 ][ j0 ] = 1.0f;
@@ -243,8 +250,8 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
             DRAG_PATH_X.add ( Float.valueOf ( PRESS_X ) );
             DRAG_PATH_Y.add ( Float.valueOf ( PRESS_Y ) );
         } else if ( FORCE_MODE == 2 ) {
-            POS_2[ 0 ] = PRESS_X / (float) WIN_WIDTH;
-            POS_2[ 1 ] = PRESS_Y / (float) WIN_HEIGHT;
+            POS_2[ 0 ] = PRESS_X / WIN_WIDTH;
+            POS_2[ 1 ] = PRESS_Y / WIN_HEIGHT;
 
             float[][] force_path = new float[ 2 ][ 4 ];
             force_path[ 0 ][ 0 ] = POS_1[ 0 ];
@@ -276,14 +283,16 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
             while ( itr_x.hasNext () ) {
                 Float x = itr_x.next ();
                 Float y = itr_y.next ();
-                force_path[ i ][ 0 ] = x.floatValue () / (float) ( WIN_WIDTH );
-                force_path[ i ][ 1 ] = y.floatValue () / (float) ( WIN_HEIGHT );
+                force_path[ i ][ 0 ] = x.floatValue () / ( WIN_WIDTH );
+                force_path[ i ][ 1 ] = y.floatValue () / ( WIN_HEIGHT );
                 i++;
             }
 
             for ( i = 0; i < force_path.length - 1; i++ ) {
-                force_path[ i ][ 2 ] = ( force_path[ i + 1 ][ 0 ] - force_path[ i ][ 0 ] ) * LEFuncs.FORCE_MAG;
-                force_path[ i ][ 3 ] = ( force_path[ i + 1 ][ 1 ] - force_path[ i ][ 1 ] ) * LEFuncs.FORCE_MAG;
+                force_path[ i ][ 2 ] = ( force_path[ i + 1 ][ 0 ] - force_path[ i ][ 0 ] )
+                        * LEFuncs.FORCE_MAG;
+                force_path[ i ][ 3 ] = ( force_path[ i + 1 ][ 1 ] - force_path[ i ][ 1 ] )
+                        * LEFuncs.FORCE_MAG;
             }
 
             LEFuncs.stir ( force_path );

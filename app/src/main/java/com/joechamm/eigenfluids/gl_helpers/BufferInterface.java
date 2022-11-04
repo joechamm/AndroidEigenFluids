@@ -31,4 +31,5 @@ public interface BufferInterface {
     public boolean initializeBuffers ();
 
     public void updateBuffers ();
+
 }

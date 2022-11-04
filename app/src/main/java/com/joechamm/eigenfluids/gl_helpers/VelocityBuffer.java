@@ -28,105 +28,117 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 
-import com.joechamm.eigenfluids.EigenFluidsRenderer;
 import com.joechamm.eigenfluids.utils.LEFuncs;
 
 import android.opengl.GLES20;
 
 public class VelocityBuffer implements BufferInterface {
+    public int velRows = 0;
+    public int velCols = 0;
+    public float[] velArray = null;
+    public int[] vbos = new int[ 1 ];
 
-    public int[] mVBOS;
-
-    private final float velocityBufferColor[] = {
-            1.0f, 0.0f, 0.0f, 1.0f
-    };
-
-    private final float velocityColor[] = { 1.0f, 0.0f, 0.0f, 1.0f };
-
-    private final FloatBuffer mPosBuffer;
-    private final int mProgram;
-    private int m_aPos;
-    private int m_uCol;
-    private int m_uMVP;
-
-    public float[] mPosArray;
+    public FloatBuffer velBuffer;
 
     public VelocityBuffer () {
+    }
+
+    /*
+     * (non-Javadoc)
+     *
+     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#render(float[])
+     */
+    @Override
+    public void render ( float[] transform ) {
+        // TODO Auto-generated method stub
+        final float velocityColor[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+        int count = velArray.length / 2;
+
+        GLES20.glUseProgram ( SharedResources.velProg );
+
+        GLES20.glUniformMatrix4fv ( SharedResources.velUMVP, 1, false, transform, 0 );
+        GLES20.glUniform4fv ( SharedResources.velUCol, 1, velocityColor, 0 );
+
+        GLES20.glBindBuffer ( GLES20.GL_ARRAY_BUFFER, vbos[ 0 ] );
+        GLES20.glEnableVertexAttribArray ( SharedResources.velAPos );
+        GLES20.glVertexAttribPointer ( SharedResources.velAPos, 2, GLES20.GL_FLOAT, false, 0, 0 );
+
+        GLES20.glDrawArrays ( GLES20.GL_LINES, 0, count );
+
+        GLES20.glDisableVertexAttribArray ( SharedResources.velAPos );
+        GLES20.glBindBuffer ( GLES20.GL_ARRAY_BUFFER, 0 );
+
+        GLES20.glUseProgram ( 0 );
+
+        GLES20.glBindBuffer ( GLES20.GL_ARRAY_BUFFER, 0 );
+
+    }
+
+    /*
+     * (non-Javadoc)
+     *
+     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#initializeBuffers()
+     */
+    @Override
+    public boolean initializeBuffers () {
+        // TODO Auto-generated method stub
+
         float x0, x1, y0, y1, dx, dy;
-        int j0, j1, vs, fs;
+        int j0, j1;
 
-        dx = 1.0f / (float) LEFuncs.VEL_COLS;
-        dy = 1.0f / (float) LEFuncs.VEL_ROWS;
+        velCols = LEFuncs.VEL_COLS;
+        velRows = LEFuncs.VEL_ROWS;
 
-        mPosArray = new float[ LEFuncs.VEL_COLS * LEFuncs.VEL_ROWS * 2 * 2 ];
+        dx = 1.0f / LEFuncs.VEL_COLS;
+        dy = 1.0f / LEFuncs.VEL_ROWS;
 
-        for ( int row = 0; row < LEFuncs.VEL_ROWS; ++ row ) {
-            for ( int col = 0; col < LEFuncs.VEL_COLS; ++ col ) {
-                int i = row * LEFuncs.VEL_COLS + col;
+        velArray = new float[ velCols * velRows * 2 * 2 ];
+
+        for ( int row = 0; row < velRows; ++ row ) {
+            for ( int col = 0; col < velCols; ++ col ) {
+                int i = row * velCols + col;
 
                 j0 = i * 2;
                 j1 = j0 + 1;
 
-                x0 = ( (float) col ) * dx;
-                y0 = ( (float) row ) * dy;
+                x0 = ( col ) * dx;
+                y0 = ( row ) * dy;
 
                 x1 = x0;
                 y1 = y0;
 
-                mPosArray[ j0 * 2 ] = x0;
-                mPosArray[ j0 * 2 + 1 ] = y0;
+                velArray[ j0 * 2 ] = x0;
+                velArray[ j0 * 2 + 1 ] = y0;
 
-                mPosArray[ j1 * 2 ] = x1;
-                mPosArray[ j1 * 2 + 1 ] = y1;
+                velArray[ j1 * 2 ] = x1;
+                velArray[ j1 * 2 + 1 ] = y1;
             }
         }
 
-        ByteBuffer bbf = ByteBuffer.allocateDirect ( mPosArray.length * 4 );
+        ByteBuffer bbf = ByteBuffer.allocateDirect ( velArray.length * 4 );
         bbf.order ( ByteOrder.nativeOrder () );
 
-        mPosBuffer = bbf.asFloatBuffer ();
-        mPosBuffer.put ( mPosArray );
-        mPosBuffer.position ( 0 );
+        velBuffer = bbf.asFloatBuffer ();
+        velBuffer.put ( velArray );
+        velBuffer.position ( 0 );
 
-        vs = EigenFluidsRenderer.loadShader ( GLES20.GL_VERTEX_SHADER, vertexShaderCode );
-        fs = EigenFluidsRenderer.loadShader ( GLES20.GL_FRAGMENT_SHADER, fragmentShaderCode );
+        GLES20.glGenBuffers ( 1, vbos, 0 );
+        GLES20.glBindBuffer ( GLES20.GL_ARRAY_BUFFER, vbos[ 0 ] );
+        GLES20.glBufferData ( GLES20.GL_ARRAY_BUFFER, velArray.length * 4, velBuffer, GLES20.GL_STATIC_DRAW );
+        GLES20.glBindBuffer ( GLES20.GL_ARRAY_BUFFER, 0 );
 
-        mProgram = GLES20.glCreateProgram ();
-        GLES20.glAttachShader ( mProgram, vs );
-        GLES20.glAttachShader ( mProgram, fs );
-        GLES20.glLinkProgram ( mProgram );
-
-        m_aPos = GLES20.glGetAttribLocation ( mProgram, "aPos" );
-        m_uMVP = GLES20.glGetUniformLocation ( mProgram, "uMVP" );
-        m_uCol = GLES20.glGetUniformLocation ( mProgram, "uColor" );
+        return true;
     }
 
-    public void draw ( float[] mvpMatrix ) {
-        int count = mPosArray.length / 2;
-
-        GLES20.glUseProgram ( mProgram );
-
-        GLES20.glUniformMatrix4fv ( m_uMVP, 1, false, mvpMatrix, 0 );
-        GLES20.glUniform4fv ( m_uCol, 1, velocityColor, 0 );
-
-        GLES20.glEnableVertexAttribArray ( m_aPos );
-        GLES20.glVertexAttribPointer ( m_aPos, 2, GLES20.GL_FLOAT, false, 0, mPosBuffer );
-
-        GLES20.glDrawArrays ( GLES20.GL_LINES, 0, count );
-
-        GLES20.glDisableVertexAttribArray ( m_aPos );
-
-        GLES20.glUseProgram ( 0 );
-    }
-
-
+    @Override
     public void updateBuffers () {
         final float dispScale = 5.0f;
 
         float dx, dy, vx, vy;
 
-        dx = 1.0f / (float) LEFuncs.VEL_COLS;
-        dy = 1.0f / (float) LEFuncs.VEL_ROWS;
+        dx = 1.0f / LEFuncs.VEL_COLS;
+        dy = 1.0f / LEFuncs.VEL_ROWS;
 
         for ( int row = 0; row < LEFuncs.VEL_ROWS; ++ row ) {
             for ( int col = 0; col < LEFuncs.VEL_COLS; ++ col ) {
@@ -136,31 +148,16 @@ public class VelocityBuffer implements BufferInterface {
                 vx = LEFuncs.VELOCITY_FIELD[ 0 ][ col + 1 ][ row + 1 ];
                 vy = LEFuncs.VELOCITY_FIELD[ 1 ][ col + 1 ][ row + 1 ];
 
-                mPosArray[ j1 * 2 ] = mPosArray[ j0 * 2 ] + vx * dx * dispScale;
-                mPosArray[ j1 * 2 + 1 ] = mPosArray[ j0 * 2 + 1 ] + vy * dy * dispScale;
+                velArray[ j1 * 2 ] = velArray[ j0 * 2 ] + vx * dx * dispScale;
+                velArray[ j1 * 2 + 1 ] = velArray[ j0 * 2 + 1 ] + vy * dy * dispScale;
             }
         }
 
-        mPosBuffer.put ( mPosArray );
-        mPosBuffer.position ( 0 );
+        velBuffer.put ( velArray );
+        velBuffer.position ( 0 );
+
+        GLES20.glBindBuffer ( GLES20.GL_ARRAY_BUFFER, vbos[ 0 ] );
+        GLES20.glBufferSubData ( GLES20.GL_ARRAY_BUFFER, 0, velArray.length * 4, velBuffer );
+        GLES20.glBindBuffer ( GLES20.GL_ARRAY_BUFFER, 0 );
     }
-
-    /* (non-Javadoc)
-     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#render(float[])
-     */
-    @Override
-    public void render ( float[] transform ) {
-        // TODO Auto-generated method stub
-
-    }
-
-    /* (non-Javadoc)
-     * @see com.chamm.eigenfluids.gl_helpers.BufferInterface#initializeBuffers()
-     */
-    @Override
-    public boolean initializeBuffers () {
-        // TODO Auto-generated method stub
-        return false;
-    }
-
 }

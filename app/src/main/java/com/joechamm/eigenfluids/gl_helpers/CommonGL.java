@@ -24,7 +24,6 @@
 
 package com.joechamm.eigenfluids.gl_helpers;
 
-
 import android.opengl.GLES20;
 import android.util.Log;
 
@@ -85,7 +84,9 @@ public class CommonGL {
         return shader;
     }
 
-    public static int loadShaderProgram ( String vsCode, String fsCode, String debugTag ) {
+    public static int loadShaderProgram (
+            String vsCode, String fsCode, String debugTag
+    ) {
         int vs, fs, prog;
         final int[] var = new int[ 1 ];
         vs = GLES20.glCreateShader ( GLES20.GL_VERTEX_SHADER );
