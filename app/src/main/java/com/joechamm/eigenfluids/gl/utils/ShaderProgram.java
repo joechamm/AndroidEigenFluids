@@ -22,27 +22,25 @@
  * SOFTWARE.
  */
 
-package com.joechamm.eigenfluids.gl_helpers;
+package com.joechamm.eigenfluids.gl.utils;
 
+import com.joechamm.eigenfluids.utils.ResourceReader;
+
+import android.content.Context;
 import android.opengl.GLES20;
-import android.util.Log;
 
-public class CommonGL {
+public abstract class ShaderProgram {
 
-    public static int prevPowTwo ( int n ) {
-        int p = 1;
-        while ( p < n ) {
-            p <<= 1;
-        }
-        return p;
+    protected final int handle;
+
+    public ShaderProgram ( Context ctx, int vertResourceId, int fragResourceId ) {
+        String vsCode = ResourceReader.readTextFileFromResource ( ctx, vertResourceId );
+        String fsCode = ResourceReader.readTextFileFromResource ( ctx, fragResourceId );
+        handle = ShaderUtils.loadShaderProgram ( vsCode, fsCode );
     }
 
-    public static void checkGLError ( String tag, String desc ) {
-        int err;
-        while ( ( err = GLES20.glGetError () ) != GLES20.GL_NO_ERROR ) {
-            Log.e ( tag, desc + ": glError " + err );
-            throw new RuntimeException ( desc + ": glError " + err );
-        }
+    public void useProgram () {
+        GLES20.glUseProgram ( handle );
     }
 
 }

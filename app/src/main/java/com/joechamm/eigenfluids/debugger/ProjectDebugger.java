@@ -22,27 +22,10 @@
  * SOFTWARE.
  */
 
-package com.joechamm.eigenfluids.gl_helpers;
+package com.joechamm.eigenfluids.debugger;
 
-import android.opengl.GLES20;
-import android.util.Log;
+public class ProjectDebugger {
 
-public class CommonGL {
-
-    public static int prevPowTwo ( int n ) {
-        int p = 1;
-        while ( p < n ) {
-            p <<= 1;
-        }
-        return p;
-    }
-
-    public static void checkGLError ( String tag, String desc ) {
-        int err;
-        while ( ( err = GLES20.glGetError () ) != GLES20.GL_NO_ERROR ) {
-            Log.e ( tag, desc + ": glError " + err );
-            throw new RuntimeException ( desc + ": glError " + err );
-        }
-    }
+    public static final boolean ON = true;
 
 }

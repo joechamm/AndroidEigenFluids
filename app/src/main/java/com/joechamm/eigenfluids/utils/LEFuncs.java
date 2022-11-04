@@ -150,7 +150,8 @@ public class LEFuncs {
 
             EIGENVALUES[ i ] = ( k1 * k1 + k2 * k2 );
             INV_EIGENVALUES[ i ] = 1.0f / ( k1 * k1 + k2 * k2 );
-            INVROOT_EIGENVALUES[ i ] = (float) ( 1.0f / Math.sqrt ( ( k1 * k1 + k2 * k2 ) ) );
+            INVROOT_EIGENVALUES[ i ] = (float) ( 1.0f / Math.sqrt ( ( k1 * k1 + k2
+                    * k2 ) ) );
         }
 
         for ( int d1 = 0; d1 < DIM_N; d1++ ) {
@@ -184,9 +185,11 @@ public class LEFuncs {
                     int index = basis_rlookup ( i, j );
 
                     if ( index != - 1 ) {
-                        float coef = - coefdensity ( a1, a2, b1, b2, c, 0 ) * inv_lambda_b;
+                        float coef = - coefdensity ( a1, a2, b1, b2, c, 0 )
+                                * inv_lambda_b;
                         CK_MATRICES[ index ].set ( k1, k2, coef );
-                        CK_MATRICES[ index ].set ( k2, k1, - coef * ( lambda_b / lambda_a ) );
+                        CK_MATRICES[ index ].set ( k2, k1, - coef
+                                * ( lambda_b / lambda_a ) );
                     }
                 }
             }
@@ -220,8 +223,16 @@ public class LEFuncs {
                 float x = i * deltax;
                 float y = j * deltay;
 
-                vf[ 0 ][ i ][ j ] = - (float) b * amp * xfact * (float) ( ( Math.sin ( a * x ) ) * Math.cos ( b * ( y + 0.5 * deltay ) ) );
-                vf[ 1 ][ i ][ j ] = a * amp * yfact * (float) ( ( Math.cos ( a * ( x + 0.5 * deltax ) ) * Math.sin ( b * y ) ) );
+                vf[ 0 ][ i ][ j ] = - (float) b
+                        * amp
+                        * xfact
+                        * (float) ( ( Math.sin ( a * x ) ) * Math.cos ( b
+                                                                                * ( y + 0.5 * deltay ) ) );
+                vf[ 1 ][ i ][ j ] = a
+                        * amp
+                        * yfact
+                        * (float) ( ( Math.cos ( a * ( x + 0.5 * deltax ) ) * Math
+                        .sin ( b * y ) ) );
             }
         }
         return vf;
@@ -235,32 +246,49 @@ public class LEFuncs {
     }
 
     public static float coefdensity (
-            int a1, int b1, int a2, int b2, int c, int tt
+            int a1, int b1, int a2, int b2, int c,
+            int tt
     ) {
         if ( tt == 0 ) {
             // SS x SS
-            if ( c == 0 ) return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
-            if ( c == 1 ) return 0.25f * ( a1 * b2 + a2 * b1 ); // -+
-            if ( c == 2 ) return 0.25f * - ( a1 * b2 + a2 * b1 ); // +-
-            if ( c == 3 ) return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
+            if ( c == 0 )
+                return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
+            if ( c == 1 )
+                return 0.25f * ( a1 * b2 + a2 * b1 ); // -+
+            if ( c == 2 )
+                return 0.25f * - ( a1 * b2 + a2 * b1 ); // +-
+            if ( c == 3 )
+                return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
         } else if ( tt == 1 ) {
             // SC x SS
-            if ( c == 0 ) return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
-            if ( c == 1 ) return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
-            if ( c == 2 ) return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
-            if ( c == 3 ) return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
+            if ( c == 0 )
+                return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
+            if ( c == 1 )
+                return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
+            if ( c == 2 )
+                return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
+            if ( c == 3 )
+                return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
         } else if ( tt == 2 ) {
             // CS x SS
-            if ( c == 0 ) return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
-            if ( c == 1 ) return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
-            if ( c == 2 ) return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
-            if ( c == 3 ) return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
+            if ( c == 0 )
+                return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
+            if ( c == 1 )
+                return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
+            if ( c == 2 )
+                return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
+            if ( c == 3 )
+                return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
         } else if ( tt == 3 ) {
             // CS x SS
-            if ( c == 0 ) return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
-            if ( c == 1 ) return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
-            if ( c == 2 ) return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
-            if ( c == 3 ) return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
+            if ( c == 0 )
+                return 0.25f * - ( a1 * b2 - a2 * b1 ); // --
+            if ( c == 1 )
+                return 0.25f * - ( a1 * b2 + a2 * b1 ); // -+
+            if ( c == 2 )
+                return 0.25f * ( a1 * b2 + a2 * b1 ); // +-
+            if ( c == 3 )
+                return 0.25f * ( a1 * b2 - a2 * b1 ); // ++
         }
 
         return 0;
@@ -354,8 +382,10 @@ public class LEFuncs {
         for ( int k = 0; k < DIM_N; k++ ) {
             for ( int i = 0; i < VEL_COLS + 1; i++ ) {
                 for ( int j = 0; j < VEL_ROWS + 1; j++ ) {
-                    VELOCITY_FIELD[ 0 ][ i ][ j ] += COEFS[ k ] * VELOCITY_BASIS[ k ][ 0 ][ i ][ j ];
-                    VELOCITY_FIELD[ 1 ][ i ][ j ] += COEFS[ k ] * VELOCITY_BASIS[ k ][ 1 ][ i ][ j ];
+                    VELOCITY_FIELD[ 0 ][ i ][ j ] += COEFS[ k ]
+                            * VELOCITY_BASIS[ k ][ 0 ][ i ][ j ];
+                    VELOCITY_FIELD[ 1 ][ i ][ j ] += COEFS[ k ]
+                            * VELOCITY_BASIS[ k ][ 1 ][ i ][ j ];
                 }
             }
         }
@@ -377,7 +407,8 @@ public class LEFuncs {
 
                 if ( RK2 ) {
                     float[] v0 = vel_at_bilinear ( x, y );
-                    float[] v1 = vel_at_bilinear ( x - 0.666f * pdt * v0[ 0 ], y - 0.666f * pdt * v0[ 1 ] );
+                    float[] v1 = vel_at_bilinear ( x - 0.666f * pdt * v0[ 0 ], y
+                            - 0.666f * pdt * v0[ 1 ] );
 
                     nx = x - pdt * ( v0[ 0 ] + 3.0f * v1[ 0 ] ) / 4.0f;
                     ny = y - pdt * ( v0[ 1 ] + 3.0f * v1[ 1 ] ) / 4.0f;
@@ -422,7 +453,8 @@ public class LEFuncs {
         float b1 = DENSITY_FIELD[ x1 ][ y1 ];
         float b2 = DENSITY_FIELD[ x2 ][ y1 ] - DENSITY_FIELD[ x1 ][ y1 ];
         float b3 = DENSITY_FIELD[ x1 ][ y2 ] - DENSITY_FIELD[ x1 ][ y1 ];
-        float b4 = DENSITY_FIELD[ x1 ][ y1 ] - DENSITY_FIELD[ x2 ][ y1 ] - DENSITY_FIELD[ x1 ][ y2 ] + DENSITY_FIELD[ x2 ][ y2 ];
+        float b4 = DENSITY_FIELD[ x1 ][ y1 ] - DENSITY_FIELD[ x2 ][ y1 ]
+                - DENSITY_FIELD[ x1 ][ y2 ] + DENSITY_FIELD[ x2 ][ y2 ];
 
         float dx = xx - x1;
         float dy = yy - y1;
@@ -518,15 +550,18 @@ public class LEFuncs {
                 float fx = force_path[ j ][ 2 ];
                 float fy = force_path[ j ][ 3 ];
 
-                if ( x >= 1.00001f || x <= - 0.00001f || y >= 1.00001f || y <= - 0.00001f ) {
+                if ( x >= 1.00001f || x <= - 0.00001f || y >= 1.00001f
+                        || y <= - 0.00001f ) {
                     continue;
                 }
 
                 x *= 3.14159f;
                 y *= 3.14159f;
 
-                float vx = - (float) b * DT * xfact * (float) ( ( Math.sin ( a * x ) * Math.cos ( b * y ) ) );
-                float vy = a * DT * yfact * (float) ( ( Math.cos ( a * x ) * Math.sin ( b * y ) ) );
+                float vx = - (float) b * DT * xfact
+                        * (float) ( ( Math.sin ( a * x ) * Math.cos ( b * y ) ) );
+                float vy = a * DT * yfact
+                        * (float) ( ( Math.cos ( a * x ) * Math.sin ( b * y ) ) );
 
                 tot += ( vx * fx + vy * fy );
             }
@@ -564,7 +599,13 @@ public class LEFuncs {
 
         tk = xx - x[ k ];
 
-        v[ 0 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] * ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] * ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] * ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
+        v[ 0 ] = f[ k - 1 ]
+                * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk )
+                + f[ k ]
+                * ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk
+                * tk ) + f[ k + 1 ]
+                * ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk )
+                + f[ k + 2 ] * ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
 
         f[ k - 1 ] = VELOCITY_FIELD[ 1 ][ x[ k ] ][ y[ k - 1 ] ];
         f[ k ] = VELOCITY_FIELD[ 1 ][ x[ k ] ][ y[ k ] ];
@@ -573,7 +614,13 @@ public class LEFuncs {
 
         tk = yy - y[ k ];
 
-        v[ 1 ] = f[ k - 1 ] * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk ) + f[ k ] * ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 1 ] * ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk ) + f[ k + 2 ] * ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
+        v[ 1 ] = f[ k - 1 ]
+                * ( - 0.5f * tk + tk * tk - 0.5f * tk * tk * tk )
+                + f[ k ]
+                * ( 1.0f - ( 5.0f / 2.0f ) * tk * tk + ( 3.0f / 2.0f ) * tk * tk
+                * tk ) + f[ k + 1 ]
+                * ( 0.5f * tk + 2.0f * tk * tk - ( 3.0f / 2.0f ) * tk * tk * tk )
+                + f[ k + 2 ] * ( - 0.5f * tk * tk + 0.5f * tk * tk * tk );
 
         return v;
     }

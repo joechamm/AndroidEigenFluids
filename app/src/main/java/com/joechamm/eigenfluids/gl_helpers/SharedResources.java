@@ -28,18 +28,6 @@ import android.opengl.GLES20;
 
 public class SharedResources {
 
-    // Velocity Buffer shaders
-
-    private static final String velVertexShaderCode = "attribute vec4 aPos;\n" + "uniform mat4 uMVP;\n" + "void main() {\n" + "	gl_Position = uMVP * aPos;\n" + "}";
-
-    private static final String velFragmentShaderCode = "precision mediump float;\n" + "uniform vec4 uColor;\n" + "void main() {\n" + "	gl_FragColor = uColor;\n" + "}\n";
-
-    // Density Buffer shaders
-
-    private static final String densVertShaderCode = "attribute vec4 aPos;\n" + "attribute vec2 aTex;\n" + "varying vec2 vTex;\n" + "uniform mat4 uMVP;\n" + "void main() {\n" + "   vTex = aTex;\n" + "	gl_Position = uMVP * aPos;\n" + "}";
-
-    private static final String densFragmentShaderCode = "precision mediump float;\n" + "varying vec2 vTex;\n" + "uniform sampler2D uDensity;\n" + "uniform vec4 uColor;\n" + "void main() {\n" + "   float d = texture2D(uDensity, vTex).r;\n" + "	vec3 color = uColor.rgb * d;\n" + "	gl_FragColor = vec4(color, 1.0);\n" + "}\n";
-
     public static int velProg = 0;
     public static int velAPos = - 1;
     public static int velUMVP = - 1;

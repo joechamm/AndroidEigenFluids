@@ -27,7 +27,6 @@
     <string name="settings">Settings</string>
     <string name="disp_vel">Display Velocity Field</string>
     <string name="disp_den">Display Density Field</string>
-    <string name="disp_vel">Display Velocity</string>
     <string name="force_mode">Force Mode</string>
     <string name="force_mode_off">Forces Off</string>
     <string name="force_mode_instant">Instant Forces</string>

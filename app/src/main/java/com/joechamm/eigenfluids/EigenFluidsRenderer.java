@@ -44,7 +44,7 @@ public class EigenFluidsRenderer implements GLSurfaceView.Renderer {
 
     // private static final LEFuncs lapEFuncs = new LEFuncs();
 
-    private static final String TAG = "eigenfluids:renderer";
+    private static final String TAG = "EigenFluidsRenderer";
     private final float[] mMVPMatrix = new float[ 16 ];
     private final float[] mProjectionMatrix = new float[ 16 ];
     private final float[] mModelMatrix = new float[ 16 ];
